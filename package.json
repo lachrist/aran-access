@@ -1,6 +1,6 @@
 {
-  "name": "aran-access-control",
-  "description": "Access Control System for Aran",
+  "name": "aran-access",
+  "description": "Access Control System for http://npmjs.com/aran",
   "version": "0.0.0",
   "author": {
     "name": "Laurent Christophe",
@@ -8,8 +8,8 @@
   },
   "files": "src/",
   "main": "src/main.js",
-  "repository": "lachrist/aran-access-control",
-  "homepage": "http://github.com/lachrist/aran-access-control",
+  "repository": "lachrist/aran-access",
+  "homepage": "http://github.com/lachrist/aran-access",
   "license": "MIT",
   "devDependencies": {
     "aran": "2.1.4",

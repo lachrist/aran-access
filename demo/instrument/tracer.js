@@ -1,7 +1,7 @@
 const Acorn = require("acorn");
 const Aran = require("aran");
 const Astring = require("astring");
-const AranAccessControl = require("aran-access-control");
+const AranAccess = require("aran-access");
 
 let counter = 0;
 const print = (value) => {
@@ -18,7 +18,7 @@ const print = (value) => {
 const aran = Aran({namespace:"ADVICE", sandbox:true});
 const instrument = (script, scope) =>
     Astring.generate(aran.weave(Acorn.parse(script), pointcut, scope));
-const access = AranAccessControl({
+const access = AranAccess({
   instrument: instrument,
   enter: (value) => {
     console.log("ENTER", print(value));

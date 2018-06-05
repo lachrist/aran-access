@@ -1,13 +1,13 @@
 const Acorn = require("acorn");
 const Aran = require("aran");
 const Astring = require("astring");
-const AranAccessControl = require("aran-access-control");
+const AranAccess = require("aran-access");
 
 const aran = Aran({namespace:"ADVICE", sandbox:true});
 const instrument = (script, scope) =>
     Astring.generate(aran.weave(Acorn.parse(script), pointcut, scope));
 let wrappers = new WeakSet();
-const access = AranAccessControl({
+const access = AranAccess({
   instrument: instrument,
   enter: (value) => {
     const wrapper = {inner:value};

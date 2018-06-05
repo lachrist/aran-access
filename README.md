@@ -1,25 +1,25 @@
-# AranAccessControl
+# AranAccess
 
-AranAccessControl is [npm module](https://www.npmjs.com/aran-access-control) that implements an access control system around JavaScript code instrumented by [Aran](https://github.com/lachrist/aran).
+AranAccess is [npm module](https://www.npmjs.com/aran-access) that implements an access control system around JavaScript code instrumented by [Aran](https://github.com/lachrist/aran).
 This module's motivation is to build dynamic analyses capable of tracking primitive values across the object graph.
 
 ## Getting Started
 
 ```sh
-npm install acorn aran astring aran-access-control 
+npm install acorn aran astring aran-access 
 ```
 
 ```js
 const Acorn = require("acorn");
 const Aran = require("aran");
 const Astring = require("astring");
-const AranAccessControl = require("aran-access-control");
+const AranAccess = require("aran-access");
 
 const aran = Aran({namespace:"TRAPS", sandbox:true});
 const instrument = (script, parent) =>
   Astring.generate(aran.weave(Acorn.parse(script), pointcut, parent));
 let counter = 0;
-const access = AranAccessControl({
+const access = AranAccess({
   instrument: instrument,
   enter: (value) => ({concrete:value, shadow:"#"+(counter++)}),
   leave: (value) => value.concrete
@@ -78,15 +78,15 @@ if (isNaN(division.result))
 
 ## Demonstrators
 
-* [demo/analysis/identity.js](https://cdn.rawgit.com/lachrist/aran-access-control/a473e0bc/demo/output/identity-delta.html)
+* [demo/analysis/identity.js](https://cdn.rawgit.com/lachrist/aran-access/a473e0bc/demo/output/identity-delta.html)
   Demonstrate the API of this module but don't produce any observable effect.
-* [demo/analysis/tracer.js](https://cdn.rawgit.com/lachrist/aran-access-control/a473e0bc/demo/output/tracer-delta.html)
+* [demo/analysis/tracer.js](https://cdn.rawgit.com/lachrist/aran-access/a473e0bc/demo/output/tracer-delta.html)
   Use an identity membranes and log every operations.
-* [demo/analysis/wrapper](https://cdn.rawgit.com/lachrist/aran-access-control/a473e0bc/demo/output/wrapper-delta.html):
+* [demo/analysis/wrapper](https://cdn.rawgit.com/lachrist/aran-access/a473e0bc/demo/output/wrapper-delta.html):
   Every values entering instrumented areas are wrapped to provide a well-defined identity.
   Every wrapper leaving instrumented areas are unwrapped so the behavior of the base program is not altered.
   Wrapping and unwrapping operations are logged.
-* [demo/analysis/concolic](https://cdn.rawgit.com/lachrist/aran-access-control/a473e0bc/demo/output/concolic-delta.html):
+* [demo/analysis/concolic](https://cdn.rawgit.com/lachrist/aran-access/a473e0bc/demo/output/concolic-delta.html):
   Same as above but also logs the arguments and result of triggered aran's traps.
   The resulting log is a detailed data-flow trace which with proper formating can be fed to a SMT solver.
 
@@ -111,7 +111,7 @@ if (isNaN(division.result))
     * applying it with a tame value this-argument and inner value arguments will return an inner value
     * constructing it with inner value arguments will return an inner value
 
-### `access = require("aran-access-control")(membrane)`
+### `access = require("aran-access")(membrane)`
 
 * `membrane :: object`
   * `inner = membrane.enter(tame)`:
