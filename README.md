@@ -126,7 +126,7 @@ if (isNaN(division.result))
 * `access :: object`
   * `access.advice :: object`
   An aran advice, contains Aran traps and a `SANDBOX` field which is set to `access.capture(global)`.
-  The actual traps triggered by Aran can 
+  The user can modify the advice before leting aran using it.
   * `access.membrane :: object`:
   The same object as the membrane arguments.
   * `tame = access.capture(wild)`
@@ -201,6 +201,22 @@ We now discuss several strategies to provide an identity to primitive values:
 I'm [Laurent Christophe](http://soft.vub.ac.be/soft/members/lachrist) a phd student at the Vrij Universiteit of Brussel (VUB).
 I'm working at the SOFT language lab in close relation with my promoters [Coen De Roover](http://soft.vub.ac.be/soft/members/cderoove) and [Wolfgang De Meuter](http://soft.vub.ac.be/soft/members/wdmeuter).
 I'm currently being employed on the [Tearless](http://soft.vub.ac.be/tearless/pages/index.html) project.
+
+<!-- Improvements ideas:
+Provide a much more fine grained membrane definition.
+This membrane can easily express the actual membrane and is symetric.
+I suspect I will be able to use a single foreign file instead of generating the dual.
+```
+membrane = {
+  instrument: (script, serial) => ...,
+  enter_primitive: (primitive) => ...,
+  enter_native_wild: (native_wild) => ...,
+  enter_native_tame: (native_tame) => ...,
+  leave_wild: (inner) => ...,
+  leave_tame: (inner) => ...,
+};
+```
+ -->
 
 <!-- 
 1. **Debugging NaN appearances**
