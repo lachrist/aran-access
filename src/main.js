@@ -59,6 +59,8 @@ module.exports = (membrane) => {
     if (!strict)
       _scope.arguments.callee = membrane.enter(_scope.callee);
     Reflect_setPrototypeOf(_scope.arguments, capture(Object_prototype));
+    if (_scope.new)
+      Reflect_setPrototypeOf(_scope.this, membrane.leave(Reflect_getPrototypeOf(_scope.this)));
     return {
       new: membrane.enter(_scope.new),
       callee: membrane.enter(_scope.callee),
@@ -135,10 +137,10 @@ module.exports = (membrane) => {
     }
     return Reflect_apply(membrane.leave($$value), void 0, array$$value);
   };
-  advice.invoke = ($$value1, $$value2, array$$value, serial) => {
-    const $value1 = membrane.leave($$value1);
-    return Reflect_apply(membrane.leave($value1[release(membrane.leave($$value2))]), $value1, array$$value);
-  };
+  advice.invoke = ($$value1, $$value2, array$$value, serial) => Reflect_apply(
+    membrane.leave(advice.get($$value1, $$value2, serial)),
+    membrane.leave($$value1),
+    array$$value);
   advice.construct = ($$value, array$$value, serial) => {
     switch (array$$value.length) {
       case 0: return new (membrane.leave($$value))();
@@ -151,10 +153,10 @@ module.exports = (membrane) => {
   advice.get = ($$value1, $$value2, serial) => {
     const $value1 = membrane.leave($$value1);
     const value2 = release(membrane.leave($$value2));
-    if ($value1 && (typeof $value1 === "object" || typeof $value1 === "function"))
+    if ($value1 && (typeof $value1 === "object" || typeof $value1 === "function") && (value2 in $value1))
       return $value1[value2];
     return membrane.enter($value1[value2]);
-  }
+  };
   advice.set = ($$value1, $$value2, $$value3, serial) => membrane.leave($$value1)[release(membrane.leave($$value2))] = $$value3;
   advice.delete = ($$value1, $$value2) => membrane.enter(delete membrane.leave($$value1)[release(membrane.leave($$value2))]);
   advice.array = (array$$value, serial) => {

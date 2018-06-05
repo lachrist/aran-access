@@ -32,3 +32,4 @@ bundle("identity", "delta");
 bundle("tracer", "delta");
 bundle("wrapper", "delta");
 bundle("concolic", "delta");
+bundle("dependency", "delta");

@@ -1,119 +1,51 @@
 const Acorn = require("acorn");
 const Aran = require("aran");
 const Astring = require("astring");
-const AranAccessControl = require("aran-access-control");
-
-let counter1 = 0;
-let counter2 = 0;
-let pointers = new WeakMap();
-
-const print = (value) => {
-  if (value && typeof value === "object" || typeof value === "function") {
-    let pointer = pointers.get(value);
-    if (!pointer) {
-      pointer = ++counter1;
-      pointers.set(value, pointer);
-    }
-    return "&" + pointer;
-  }
-  if (typeof value === "string")
-    return JSON.stringify(value);
-  return String(value);
-};
-
-const instrument = (script, serial) => Astring.generate(aran.weave(Acorn.parse(script, {locations:true}), pointcut, serial));
-
-const access = AranAccessControl({
-  enter: (value) => ({base:value, meta:"#"+(++counter2)}),
-  leave: (wrapper) => wrapper.base,
-  instrument: instrument
-});
-
-const pointcut = Object.keys(access.advice);
-
-const location = (serial) => aran.node(serial).loc.start.line;
-
-global.ADVICE = {SANDBOX:access.advice.SANDBOX};
-
-///////////////
-// Producers //
-///////////////
-const make_scope_trap = (name) => (strict, scope, serial) => {
-  scope = access.advice[name](strict, scope, serial);
-  if (scope) {
-    for (var key in scope) {
-      console.log(scope[key].meta+" = "+name+"-"+key+"("+strict+", "+print(scope[key].base)+") "+location(serial));
-    }
-  }
-  return scope;
-};
-ADVICE.begin = make_scope_trap("begin");
-ADVICE.arrival = make_scope_trap("arrival");
-["catch", "primitive", "discard", "regexp", "closure"].forEach((name) => {
-  ADVICE[name] = function () {
-    const result = access.advice[name].apply(null, arguments);
-    arguments[arguments.length-2] = print(arguments[arguments.length-2]);
-    arguments.length--;
-    arguments.join = Array.prototype.join;
-    console.log(result.meta+" = "+name+"("+arguments.join(", ")+") "+location(arguments[arguments.length]));
-    return result;
-  };
-});
-
-///////////////
-// Consumers //
-///////////////
-["return", "throw", "success", "test", "eval", "with"].forEach((name) => {
-  ADVICE[name] = function () {
-    const result = access.advice[name].apply(null, arguments);
-    arguments[arguments.length-2] = arguments[arguments.length-2].meta;
-    arguments.length--;
-    arguments.join = Array.prototype.join;
-    console.log(name+"("+arguments.join(", ")+") "+location(arguments[arguments.length]));
-    return result;
-  };
-});
-
-///////////////
-// Combiners //
-///////////////
-const metaof = (value) => value.meta;
-const property = (pair) => "["+pair[0].meta+","+pair[1].meta+"]";
-const combine = (result, name, origin, serial) => {
-  console.log(result.meta+" = "+name+"("+origin+") "+location(serial)+" // "+print(result.base));
-  return result;
-};
-ADVICE.apply = (value, values, serial) => combine(
-  access.advice.apply(value, values, serial),
-  "apply", value.meta+", ["+values.map(metaof)+"]", serial);
-ADVICE.invoke = (value1, value2, values, serial) => combine(
-  access.advice.invoke(value1, value2, values, serial),
-  "invoke", value1.meta+", "+value2.meta+", ["+values.map(metaof)+"]", serial);
-ADVICE.construct = (value, values, serial) => combine(
-  access.advice.construct(value, values, serial),
-  "construct", value.meta+", ["+values.map(metaof)+"]", serial);
-ADVICE.get = (value1, value2, serial) => combine(
-  access.advice.get(value1, value2, serial),
-  "get", value1.meta+", "+value2.meta, serial);
-ADVICE.set = (value1, value2, value3, serial) => combine(
-  access.advice.set(value1, value2, value3, serial),
-  "set", value1.meta+", "+value2.meta+", "+value3.advice, serial);
-ADVICE.delete = (value1, value2, serial) => combine(
-  access.advice.delete(value1, value2, serial),
-  "delete", value1.meta+", "+value2.meta, serial);
-ADVICE.array = (values, serial) => combine(
-  access.advice.array(values, serial),
-  "array", "["+values.map(metaof)+"]", serial);
-ADVICE.object = (properties, serial) => combine(
-  access.advice.object(properties, serial),
-  "object", "["+properties.map(property)+"]", serial);
-ADVICE.unary = (operator, value, serial) => combine(
-  access.advice.unary(operator, value, serial),
-  "unary", "\""+operator+"\", "+value.meta, serial);
-ADVICE.binary = (operator, value1, value2, serial) => combine(
-  access.advice.binary(operator, value1, value2, serial),
-  "binary", "\""+operator+"\", "+value1.meta+", "+value2.meta, serial);
+const AranAccess = require("aran-access");
 
 const aran = Aran({namespace:"ADVICE", sandbox:true});
+const instrument = (script, scope) =>
+    Astring.generate(aran.weave(Acorn.parse(script, {locations:true}), pointcut, scope));
+const location = (serial) => "@"+aran.node(serial).loc.start.line;
+const access = AranAccess({
+  instrument: instrument,
+  enter: (value) => value,
+  leave: (value) => wrappers.has(value) ? value.base : value
+});
+let counter = 0;
+const wrappers = new WeakSet();
+const wrap = (base) => {
+  const wrapper = {base:base,meta:"#"+(++counter)};
+  wrappers.add(wrapper);
+  return wrapper;
+};
+const print = (value) => {
+  if (wrappers.has(value))
+    return value.meta;
+  if (typeof value === "string")
+    return JSON.stringify(value);
+  if (value && typeof value === "object")
+    return "[object]";
+  if (typeof value === "function")
+    return "[function]";
+  return String(value);
+};
+global.ADVICE = Object.assign({}, access.advice);
+ADVICE.primitive = (primitive, serial) => {
+  const result = wrap(access.advice.primitive(primitive, serial));
+  console.log(result.meta+" = "+print(result.base)+" // "+location(serial));
+  return result;
+};
+ADVICE.binary = (operator, value1, value2, serial) => {
+  const result = wrap(access.advice.binary(operator, value1, value2, serial));
+  console.log(result.meta+" = "+print(value1)+" "+operator+" "+print(value2)+" // "+location(serial));
+  return result;
+};
+ADVICE.unary = (operator, value, serial) => {
+  const result = wrap(access.advice.unary(operator, value, serial));
+  console.log(result.meta+" = "+operator+" "+print(value)+" // "+location(serial));
+  return result;
+};
+const pointcut = Object.keys(ADVICE);
 global.eval(Astring.generate(aran.setup()));
 module.exports = (script, source) => instrument(script);
