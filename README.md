@@ -89,7 +89,7 @@ if (isNaN(division.result))
 * [demo/analysis/concolic](https://cdn.rawgit.com/lachrist/aran-access/3ce7091f/demo/output/concolic-delta.html):
   In this very simple concolic executer, primitive values from literal, binary and unary operations are all considered symbolic.
   Also use a wrapper membrane but overwrite a couple of traps to log data dependencies.
-* [demo/analysis/concolic](https://cdn.rawgit.com/lachrist/aran-access/3ce7091f/demo/output/dependency-delta.html):
+* [demo/analysis/dependency](https://cdn.rawgit.com/lachrist/aran-access/3ce7091f/demo/output/dependency-delta.html):
   Same as above but every traps is login the data flow.
 
 ## API
