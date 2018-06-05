@@ -78,17 +78,19 @@ if (isNaN(division.result))
 
 ## Demonstrators
 
-* [demo/analysis/identity.js](https://cdn.rawgit.com/lachrist/aran-access/a473e0bc/demo/output/identity-delta.html)
+* [demo/analysis/identity.js](https://cdn.rawgit.com/lachrist/aran-access/3ce7091f/demo/output/identity-delta.html)
   Demonstrate the API of this module but don't produce any observable effect.
-* [demo/analysis/tracer.js](https://cdn.rawgit.com/lachrist/aran-access/a473e0bc/demo/output/tracer-delta.html)
+* [demo/analysis/tracer.js](https://cdn.rawgit.com/lachrist/aran-access/3ce7091f/demo/output/tracer-delta.html)
   Use an identity membranes and log every operations.
-* [demo/analysis/wrapper](https://cdn.rawgit.com/lachrist/aran-access/a473e0bc/demo/output/wrapper-delta.html):
+* [demo/analysis/wrapper](https://cdn.rawgit.com/lachrist/aran-access/3ce7091f/demo/output/wrapper-delta.html):
   Every values entering instrumented areas are wrapped to provide a well-defined identity.
   Every wrapper leaving instrumented areas are unwrapped so the behavior of the base program is not altered.
   Wrapping and unwrapping operations are logged.
-* [demo/analysis/concolic](https://cdn.rawgit.com/lachrist/aran-access/a473e0bc/demo/output/concolic-delta.html):
-  Same as above but also logs the arguments and result of triggered aran's traps.
-  The resulting log is a detailed data-flow trace which with proper formating can be fed to a SMT solver.
+* [demo/analysis/concolic](https://cdn.rawgit.com/lachrist/aran-access/3ce7091f/demo/output/concolic-delta.html):
+  In this very simple concolic executer, primitive values from literal, binary and unary operations are all considered symbolic.
+  Also use a wrapper membrane but overwrite a couple of traps to log data dependencies.
+* [demo/analysis/concolic](https://cdn.rawgit.com/lachrist/aran-access/3ce7091f/demo/output/dependency-delta.html):
+  Same as above but every traps is login the data flow.
 
 ## API
 
