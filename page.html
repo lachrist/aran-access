@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>identity(sample) @3:42:37 PM</title>
+    <title>identity(Unary) @5:37:26 PM</title>
   </head>
   <body>
   <script>
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
-console.dir(eval(require("/Users/soft/Desktop/workspace/aran-access/demo/instrument/identity.js")("//Linvail invoke trap revise with Laurent\n(function () {\n    debugger;\n    var pass = \"temp1234\";\n    function foo(i) {\n        this.i = i\n    };\n    foo.prototype.getI = function () {\n        return this.i;\n    };\n    var obj = new foo(pass.length);\n    console.log(new foo(pass.length).getI());\n})()")));
+console.dir(eval(require("/Users/soft/Desktop/workspace/aran-access/demo/instrument/identity.js")("if (!true)\n  throw new Error(\"Unary1\");\nlet o = {a:1,b:2};\ndelete o.a;\nif (\"a\" in o)\n  throw new Error(\"Unary2\");\ndelete o[\"b\"]\nif (\"b\" in o)\n  throw new Error(\"Unary3\");")));
 },{"/Users/soft/Desktop/workspace/aran-access/demo/instrument/identity.js":2}],2:[function(require,module,exports){
 (function (global){
 const Acorn = require("acorn");
@@ -19,8 +19,8 @@ const instrument = (script, scope) =>
   Astring.generate(aran.weave(Acorn.parse(script), pointcut, scope));
 const access = AranAccess({
   instrument: instrument,
-  enter: (value) => ({inner:value}),
-  leave: (value) => value.inner
+  enter: (value) => value,
+  leave: (value) => value
 });
 const pointcut = Object.keys(access.advice);
 global.ADVICE = access.advice;
@@ -9875,9 +9875,6 @@ const Error = global.Error;
 const String = global.String;
 const eval = global.eval;
 const Object_create = Object.create;
-const Object_prototype = Object.prototype;
-const Function_prototype = Function.prototype;
-const Array_prototype = Array.prototype;
 const Symbol_iterator = Symbol.iterator;
 
 const Reflect_apply = Reflect.apply;
@@ -9925,7 +9922,9 @@ module.exports = (membrane) => {
     _scope.arguments[Symbol_iterator] = membrane.enter(capture(_scope.arguments[Symbol_iterator]));
     if (!strict)
       _scope.arguments.callee = membrane.enter(_scope.callee);
-    Reflect_setPrototypeOf(_scope.arguments, capture(Object_prototype));
+    Reflect_setPrototypeOf(_scope.arguments, capture(Reflect_getPrototypeOf(_scope.arguments)));
+    if (_scope.new)
+      Reflect_setPrototypeOf(_scope.this, membrane.leave(Reflect_getPrototypeOf(_scope.this)));
     return {
       new: membrane.enter(_scope.new),
       callee: membrane.enter(_scope.callee),
@@ -9958,18 +9957,13 @@ module.exports = (membrane) => {
       enumerable: false,
       configurable: true
     });
-    Reflect_setPrototypeOf(_value, capture(Function_prototype));
+    Reflect_setPrototypeOf(_value, capture(Reflect_getPrototypeOf(_value)));
     if (!("prototype" in _value))
       return membrane.enter(value);
-    const $prototype = Object_create(capture(Object_prototype))
-    const $$value = membrane.enter(_value);
-    Reflect_defineProperty($prototype, "constructor", {
-      value: $$value,
-      writable: true,
-      enumerable: false,
-      configurable: true
-    });
-    _value.prototype = membrane.enter($prototype);
+    $$value = membrane.enter(_value);
+    Reflect_setPrototypeOf(_value.prototype, capture(Reflect_getPrototypeOf(_value.prototype)));
+    _value.prototype.constructor = $$value;
+    _value.prototype = membrane.enter(_value.prototype);
     return $$value;
   };
 
@@ -10002,12 +9996,10 @@ module.exports = (membrane) => {
     }
     return Reflect_apply(membrane.leave($$value), void 0, array$$value);
   };
-  advice.invoke = ($$value1, $$value2, array$$value, serial) => {
-    debugger;
-    const $$value3 = advice.get($$value1, $$value2, serial);
-    debugger;
-    return Reflect_apply(membrane.leave($$value3), membrane.leave($$value1), array$$value);
-  };
+  advice.invoke = ($$value1, $$value2, array$$value, serial) => Reflect_apply(
+    membrane.leave(advice.get($$value1, $$value2, serial)),
+    membrane.leave($$value1),
+    array$$value);
   advice.construct = ($$value, array$$value, serial) => {
     switch (array$$value.length) {
       case 0: return new (membrane.leave($$value))();
@@ -10026,18 +10018,14 @@ module.exports = (membrane) => {
   };
   advice.set = ($$value1, $$value2, $$value3, serial) => membrane.leave($$value1)[release(membrane.leave($$value2))] = $$value3;
   advice.delete = ($$value1, $$value2) => membrane.enter(delete membrane.leave($$value1)[release(membrane.leave($$value2))]);
-  advice.array = (array$$value, serial) => {
-    const $$value = [];
-    Reflect_setPrototypeOf($$value, capture(Array_prototype));
-    for (let index=0, length=array$$value.length; index < length; index++)
-      $$value[index] = array$$value[index];
-    return membrane.enter(narray($$value));
+  advice.array = ($value, serial) => {
+    Reflect_setPrototypeOf($value, capture(Reflect_getPrototypeOf($value)));
+    return membrane.enter(narray($value));
   };
-  advice.object = (_properties, serial) => {
-    const value = Object_create(capture(Object_prototype));
-    for (let index=0, length = _properties.length; index < length; index++)
-      value[release(membrane.leave(_properties[index][0]))] = _properties[index][1];
-    return membrane.enter(value);
+  advice.object = (keys, $value, serial) => {
+    debugger;
+    Reflect_setPrototypeOf($value, capture(Reflect_getPrototypeOf($value)));
+    return membrane.enter($value);
   };
   advice.unary = (operator, $$value, serial) => {
     switch (operator) {

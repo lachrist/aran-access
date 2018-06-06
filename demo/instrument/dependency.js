@@ -78,7 +78,6 @@ ADVICE.arrival = make_scope_trap("arrival");
 // Combiners //
 ///////////////
 const metaof = (value) => value.meta;
-const property = (pair) => "["+pair[0].meta+","+pair[1].meta+"]";
 const combine = (result, name, origin, serial) => {
   console.log(result.meta+" = "+name+"("+origin+") "+location(serial)+" // "+print(result.base));
   return result;
@@ -101,12 +100,12 @@ ADVICE.set = (value1, value2, value3, serial) => combine(
 ADVICE.delete = (value1, value2, serial) => combine(
   access.advice.delete(value1, value2, serial),
   "delete", value1.meta+", "+value2.meta, serial);
-ADVICE.array = (values, serial) => combine(
-  access.advice.array(values, serial),
-  "array", "["+values.map(metaof)+"]", serial);
-ADVICE.object = (properties, serial) => combine(
-  access.advice.object(properties, serial),
-  "object", "["+properties.map(property)+"]", serial);
+ADVICE.array = (value, serial) => combine(
+  access.advice.array(value.slice(), serial),
+  "array", "["+value.map(metaof)+"]", serial);
+ADVICE.object = (keys, value, serial) => combine(
+  access.advice.object(keys, value, serial),
+  "object", "{"+keys.map((key) => JSON.stringify(key)+":"+value[key].meta)+"}", serial);
 ADVICE.unary = (operator, value, serial) => combine(
   access.advice.unary(operator, value, serial),
   "unary", "\""+operator+"\", "+value.meta, serial);

@@ -8,9 +8,6 @@ const Error = global.Error;
 const String = global.String;
 const eval = global.eval;
 const Object_create = Object.create;
-const Object_prototype = Object.prototype;
-const Function_prototype = Function.prototype;
-const Array_prototype = Array.prototype;
 const Symbol_iterator = Symbol.iterator;
 
 const Reflect_apply = Reflect.apply;
@@ -58,7 +55,7 @@ module.exports = (membrane) => {
     _scope.arguments[Symbol_iterator] = membrane.enter(capture(_scope.arguments[Symbol_iterator]));
     if (!strict)
       _scope.arguments.callee = membrane.enter(_scope.callee);
-    Reflect_setPrototypeOf(_scope.arguments, capture(Object_prototype));
+    Reflect_setPrototypeOf(_scope.arguments, capture(Reflect_getPrototypeOf(_scope.arguments)));
     if (_scope.new)
       Reflect_setPrototypeOf(_scope.this, membrane.leave(Reflect_getPrototypeOf(_scope.this)));
     return {
@@ -93,18 +90,13 @@ module.exports = (membrane) => {
       enumerable: false,
       configurable: true
     });
-    Reflect_setPrototypeOf(_value, capture(Function_prototype));
+    Reflect_setPrototypeOf(_value, capture(Reflect_getPrototypeOf(_value)));
     if (!("prototype" in _value))
       return membrane.enter(value);
-    const $prototype = Object_create(capture(Object_prototype))
-    const $$value = membrane.enter(_value);
-    Reflect_defineProperty($prototype, "constructor", {
-      value: $$value,
-      writable: true,
-      enumerable: false,
-      configurable: true
-    });
-    _value.prototype = membrane.enter($prototype);
+    $$value = membrane.enter(_value);
+    Reflect_setPrototypeOf(_value.prototype, capture(Reflect_getPrototypeOf(_value.prototype)));
+    _value.prototype.constructor = $$value;
+    _value.prototype = membrane.enter(_value.prototype);
     return $$value;
   };
 
@@ -159,18 +151,14 @@ module.exports = (membrane) => {
   };
   advice.set = ($$value1, $$value2, $$value3, serial) => membrane.leave($$value1)[release(membrane.leave($$value2))] = $$value3;
   advice.delete = ($$value1, $$value2) => membrane.enter(delete membrane.leave($$value1)[release(membrane.leave($$value2))]);
-  advice.array = (array$$value, serial) => {
-    const $$value = [];
-    Reflect_setPrototypeOf($$value, capture(Array_prototype));
-    for (let index=0, length=array$$value.length; index < length; index++)
-      $$value[index] = array$$value[index];
-    return membrane.enter(narray($$value));
+  advice.array = ($value, serial) => {
+    Reflect_setPrototypeOf($value, capture(Reflect_getPrototypeOf($value)));
+    return membrane.enter(narray($value));
   };
-  advice.object = (_properties, serial) => {
-    const value = Object_create(capture(Object_prototype));
-    for (let index=0, length = _properties.length; index < length; index++)
-      value[release(membrane.leave(_properties[index][0]))] = _properties[index][1];
-    return membrane.enter(value);
+  advice.object = (keys, $value, serial) => {
+    debugger;
+    Reflect_setPrototypeOf($value, capture(Reflect_getPrototypeOf($value)));
+    return membrane.enter($value);
   };
   advice.unary = (operator, $$value, serial) => {
     switch (operator) {
