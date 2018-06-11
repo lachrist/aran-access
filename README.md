@@ -80,7 +80,7 @@ if (isNaN(division.result))
 
 * [demo/analysis/identity.js](https://cdn.rawgit.com/lachrist/aran-access/c4c99e88/demo/output/identity-delta.html)
   Demonstrate the API of this module but don't produce any observable effect.
-* [demo/analysis/identity.js](https://cdn.rawgit.com/lachrist/aran-access/c4c99e88/demo/output/identity-wrapper-delta.html)
+* [demo/analysis/identity-wrapper.js](https://cdn.rawgit.com/lachrist/aran-access/c4c99e88/demo/output/identity-wrapper-delta.html)
   Still don't produce any observable effect but wrap every values entering the system and unwrap them as they leave the system.
 * [demo/analysis/tracer.js](https://cdn.rawgit.com/lachrist/aran-access/c4c99e88/demo/output/tracer-delta.html)
   Use an identity membranes and log every operations.
