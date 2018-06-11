@@ -147,7 +147,7 @@ module.exports = (membrane) => {
     const value2 = release(membrane.leave($$value2));
     if ($value1 && (typeof $value1 === "object" || typeof $value1 === "function") && (value2 in $value1))
       return $value1[value2];
-    return membrane.enter($value1[value2]);
+    return membrane.enter(capture($value1[value2]));
   };
   advice.set = ($$value1, $$value2, $$value3, serial) => membrane.leave($$value1)[release(membrane.leave($$value2))] = $$value3;
   advice.delete = ($$value1, $$value2) => membrane.enter(delete membrane.leave($$value1)[release(membrane.leave($$value2))]);

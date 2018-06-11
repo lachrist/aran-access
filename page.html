@@ -1,13 +1,1069 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>identity(Unary) @5:37:26 PM</title>
+    <title>identity-wrapper(sample) @3:26:14 PM</title>
   </head>
   <body>
   <script>
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
-console.dir(eval(require("/Users/soft/Desktop/workspace/aran-access/demo/instrument/identity.js")("if (!true)\n  throw new Error(\"Unary1\");\nlet o = {a:1,b:2};\ndelete o.a;\nif (\"a\" in o)\n  throw new Error(\"Unary2\");\ndelete o[\"b\"]\nif (\"b\" in o)\n  throw new Error(\"Unary3\");")));
-},{"/Users/soft/Desktop/workspace/aran-access/demo/instrument/identity.js":2}],2:[function(require,module,exports){
+(function (global, factory) {
+  if (typeof define === "function" && define.amd) {
+    define(['exports'], factory);
+  } else if (typeof exports !== "undefined") {
+    factory(exports);
+  } else {
+    var mod = {
+      exports: {}
+    };
+    factory(mod.exports);
+    global.astring = mod.exports;
+  }
+})(this, function (exports) {
+  'use strict';
+
+  exports.__esModule = true;
+  exports.generate = generate;
+
+  function _classCallCheck(instance, Constructor) {
+    if (!(instance instanceof Constructor)) {
+      throw new TypeError("Cannot call a class as a function");
+    }
+  }
+
+  var stringify = JSON.stringify;
+
+
+  /* istanbul ignore if */
+  if (!String.prototype.repeat) {
+    /* istanbul ignore next */
+    throw new Error('String.prototype.repeat is undefined, see https://github.com/davidbonnet/astring#installation');
+  }
+
+  /* istanbul ignore if */
+  if (!String.prototype.endsWith) {
+    /* istanbul ignore next */
+    throw new Error('String.prototype.endsWith is undefined, see https://github.com/davidbonnet/astring#installation');
+  }
+
+  var OPERATOR_PRECEDENCE = {
+    '||': 3,
+    '&&': 4,
+    '|': 5,
+    '^': 6,
+    '&': 7,
+    '==': 8,
+    '!=': 8,
+    '===': 8,
+    '!==': 8,
+    '<': 9,
+    '>': 9,
+    '<=': 9,
+    '>=': 9,
+    in: 9,
+    instanceof: 9,
+    '<<': 10,
+    '>>': 10,
+    '>>>': 10,
+    '+': 11,
+    '-': 11,
+    '*': 12,
+    '%': 12,
+    '/': 12,
+    '**': 13
+
+    // Enables parenthesis regardless of precedence
+  };var NEEDS_PARENTHESES = 17;
+
+  var EXPRESSIONS_PRECEDENCE = {
+    // Definitions
+    ArrayExpression: 20,
+    TaggedTemplateExpression: 20,
+    ThisExpression: 20,
+    Identifier: 20,
+    Literal: 18,
+    TemplateLiteral: 20,
+    Super: 20,
+    SequenceExpression: 20,
+    // Operations
+    MemberExpression: 19,
+    CallExpression: 19,
+    NewExpression: 19,
+    // Other definitions
+    ArrowFunctionExpression: NEEDS_PARENTHESES,
+    ClassExpression: NEEDS_PARENTHESES,
+    FunctionExpression: NEEDS_PARENTHESES,
+    ObjectExpression: NEEDS_PARENTHESES,
+    // Other operations
+    UpdateExpression: 16,
+    UnaryExpression: 15,
+    BinaryExpression: 14,
+    LogicalExpression: 13,
+    ConditionalExpression: 4,
+    AssignmentExpression: 3,
+    AwaitExpression: 2,
+    YieldExpression: 2,
+    RestElement: 1
+  };
+
+  function formatSequence(state, nodes) {
+    var generator = state.generator;
+
+    state.write('(');
+    if (nodes != null && nodes.length > 0) {
+      generator[nodes[0].type](nodes[0], state);
+      var length = nodes.length;
+
+      for (var i = 1; i < length; i++) {
+        var param = nodes[i];
+        state.write(', ');
+        generator[param.type](param, state);
+      }
+    }
+    state.write(')');
+  }
+
+  function expressionNeedsParenthesis(node, parentNode, isRightHand) {
+    var nodePrecedence = EXPRESSIONS_PRECEDENCE[node.type];
+    if (nodePrecedence === NEEDS_PARENTHESES) {
+      return true;
+    }
+    var parentNodePrecedence = EXPRESSIONS_PRECEDENCE[parentNode.type];
+    if (nodePrecedence !== parentNodePrecedence) {
+      // Different node types
+      return nodePrecedence < parentNodePrecedence;
+    }
+    if (nodePrecedence !== 13 && nodePrecedence !== 14) {
+      // Not a `LogicalExpression` or `BinaryExpression`
+      return false;
+    }
+    if (node.operator === '**' && parentNode.operator === '**') {
+      // Exponentiation operator has right-to-left associativity
+      return !isRightHand;
+    }
+    if (isRightHand) {
+      // Parenthesis are used if both operators have the same precedence
+      return OPERATOR_PRECEDENCE[node.operator] <= OPERATOR_PRECEDENCE[parentNode.operator];
+    }
+    return OPERATOR_PRECEDENCE[node.operator] < OPERATOR_PRECEDENCE[parentNode.operator];
+  }
+
+  function formatBinaryExpressionPart(state, node, parentNode, isRightHand) {
+    var generator = state.generator;
+
+    if (expressionNeedsParenthesis(node, parentNode, isRightHand)) {
+      state.write('(');
+      generator[node.type](node, state);
+      state.write(')');
+    } else {
+      generator[node.type](node, state);
+    }
+  }
+
+  function reindent(state, text, indent, lineEnd) {
+    /*
+    Writes into `state` the `text` string reindented with the provided `indent`.
+    */
+    var lines = text.split('\n');
+    var end = lines.length - 1;
+    state.write(lines[0].trim());
+    if (end > 0) {
+      state.write(lineEnd);
+      for (var i = 1; i < end; i++) {
+        state.write(indent + lines[i].trim() + lineEnd);
+      }
+      state.write(indent + lines[end].trim());
+    }
+  }
+
+  function formatComments(state, comments, indent, lineEnd) {
+    var length = comments.length;
+
+    for (var i = 0; i < length; i++) {
+      var comment = comments[i];
+      state.write(indent);
+      if (comment.type[0] === 'L') {
+        // Line comment
+        state.write('// ' + comment.value.trim() + '\n');
+      } else {
+        // Block comment
+        state.write('/*');
+        reindent(state, comment.value, indent, lineEnd);
+        state.write('*/' + lineEnd);
+      }
+    }
+  }
+
+  function hasCallExpression(node) {
+    /*
+    Returns `true` if the provided `node` contains a call expression and `false` otherwise.
+    */
+    var currentNode = node;
+    while (currentNode != null) {
+      var _currentNode = currentNode,
+          type = _currentNode.type;
+
+      if (type[0] === 'C' && type[1] === 'a') {
+        // Is CallExpression
+        return true;
+      } else if (type[0] === 'M' && type[1] === 'e' && type[2] === 'm') {
+        // Is MemberExpression
+        currentNode = currentNode.object;
+      } else {
+        return false;
+      }
+    }
+  }
+
+  function formatVariableDeclaration(state, node) {
+    var generator = state.generator;
+    var declarations = node.declarations;
+
+    state.write(node.kind + ' ');
+    var length = declarations.length;
+
+    if (length > 0) {
+      generator.VariableDeclarator(declarations[0], state);
+      for (var i = 1; i < length; i++) {
+        state.write(', ');
+        generator.VariableDeclarator(declarations[i], state);
+      }
+    }
+  }
+
+  var ForInStatement = void 0,
+      FunctionDeclaration = void 0,
+      RestElement = void 0,
+      BinaryExpression = void 0,
+      ArrayExpression = void 0,
+      BlockStatement = void 0;
+
+  var baseGenerator = exports.baseGenerator = {
+    Program: function Program(node, state) {
+      var indent = state.indent.repeat(state.indentLevel);
+      var lineEnd = state.lineEnd,
+          writeComments = state.writeComments;
+
+      if (writeComments && node.comments != null) {
+        formatComments(state, node.comments, indent, lineEnd);
+      }
+      var statements = node.body;
+      var length = statements.length;
+
+      for (var i = 0; i < length; i++) {
+        var statement = statements[i];
+        if (writeComments && statement.comments != null) {
+          formatComments(state, statement.comments, indent, lineEnd);
+        }
+        state.write(indent);
+        this[statement.type](statement, state);
+        state.write(lineEnd);
+      }
+      if (writeComments && node.trailingComments != null) {
+        formatComments(state, node.trailingComments, indent, lineEnd);
+      }
+    },
+
+    BlockStatement: BlockStatement = function BlockStatement(node, state) {
+      var indent = state.indent.repeat(state.indentLevel++);
+      var lineEnd = state.lineEnd,
+          writeComments = state.writeComments;
+
+      var statementIndent = indent + state.indent;
+      state.write('{');
+      var statements = node.body;
+      if (statements != null && statements.length > 0) {
+        state.write(lineEnd);
+        if (writeComments && node.comments != null) {
+          formatComments(state, node.comments, statementIndent, lineEnd);
+        }
+        var length = statements.length;
+
+        for (var i = 0; i < length; i++) {
+          var statement = statements[i];
+          if (writeComments && statement.comments != null) {
+            formatComments(state, statement.comments, statementIndent, lineEnd);
+          }
+          state.write(statementIndent);
+          this[statement.type](statement, state);
+          state.write(lineEnd);
+        }
+        state.write(indent);
+      } else {
+        if (writeComments && node.comments != null) {
+          state.write(lineEnd);
+          formatComments(state, node.comments, statementIndent, lineEnd);
+          state.write(indent);
+        }
+      }
+      if (writeComments && node.trailingComments != null) {
+        formatComments(state, node.trailingComments, statementIndent, lineEnd);
+      }
+      state.write('}');
+      state.indentLevel--;
+    },
+    ClassBody: BlockStatement,
+    EmptyStatement: function EmptyStatement(node, state) {
+      state.write(';');
+    },
+    ExpressionStatement: function ExpressionStatement(node, state) {
+      var precedence = EXPRESSIONS_PRECEDENCE[node.expression.type];
+      if (precedence === NEEDS_PARENTHESES || precedence === 3 && node.expression.left.type[0] === 'O') {
+        // Should always have parentheses or is an AssignmentExpression to an ObjectPattern
+        state.write('(');
+        this[node.expression.type](node.expression, state);
+        state.write(')');
+      } else {
+        this[node.expression.type](node.expression, state);
+      }
+      state.write(';');
+    },
+    IfStatement: function IfStatement(node, state) {
+      state.write('if (');
+      this[node.test.type](node.test, state);
+      state.write(') ');
+      this[node.consequent.type](node.consequent, state);
+      if (node.alternate != null) {
+        state.write(' else ');
+        this[node.alternate.type](node.alternate, state);
+      }
+    },
+    LabeledStatement: function LabeledStatement(node, state) {
+      this[node.label.type](node.label, state);
+      state.write(': ');
+      this[node.body.type](node.body, state);
+    },
+    BreakStatement: function BreakStatement(node, state) {
+      state.write('break');
+      if (node.label != null) {
+        state.write(' ');
+        this[node.label.type](node.label, state);
+      }
+      state.write(';');
+    },
+    ContinueStatement: function ContinueStatement(node, state) {
+      state.write('continue');
+      if (node.label != null) {
+        state.write(' ');
+        this[node.label.type](node.label, state);
+      }
+      state.write(';');
+    },
+    WithStatement: function WithStatement(node, state) {
+      state.write('with (');
+      this[node.object.type](node.object, state);
+      state.write(') ');
+      this[node.body.type](node.body, state);
+    },
+    SwitchStatement: function SwitchStatement(node, state) {
+      var indent = state.indent.repeat(state.indentLevel++);
+      var lineEnd = state.lineEnd,
+          writeComments = state.writeComments;
+
+      state.indentLevel++;
+      var caseIndent = indent + state.indent;
+      var statementIndent = caseIndent + state.indent;
+      state.write('switch (');
+      this[node.discriminant.type](node.discriminant, state);
+      state.write(') {' + lineEnd);
+      var occurences = node.cases;
+      var occurencesCount = occurences.length;
+
+      for (var i = 0; i < occurencesCount; i++) {
+        var occurence = occurences[i];
+        if (writeComments && occurence.comments != null) {
+          formatComments(state, occurence.comments, caseIndent, lineEnd);
+        }
+        if (occurence.test) {
+          state.write(caseIndent + 'case ');
+          this[occurence.test.type](occurence.test, state);
+          state.write(':' + lineEnd);
+        } else {
+          state.write(caseIndent + 'default:' + lineEnd);
+        }
+        var consequent = occurence.consequent;
+        var consequentCount = consequent.length;
+
+        for (var _i = 0; _i < consequentCount; _i++) {
+          var statement = consequent[_i];
+          if (writeComments && statement.comments != null) {
+            formatComments(state, statement.comments, statementIndent, lineEnd);
+          }
+          state.write(statementIndent);
+          this[statement.type](statement, state);
+          state.write(lineEnd);
+        }
+      }
+      state.indentLevel -= 2;
+      state.write(indent + '}');
+    },
+    ReturnStatement: function ReturnStatement(node, state) {
+      state.write('return');
+      if (node.argument) {
+        state.write(' ');
+        this[node.argument.type](node.argument, state);
+      }
+      state.write(';');
+    },
+    ThrowStatement: function ThrowStatement(node, state) {
+      state.write('throw ');
+      this[node.argument.type](node.argument, state);
+      state.write(';');
+    },
+    TryStatement: function TryStatement(node, state) {
+      state.write('try ');
+      this[node.block.type](node.block, state);
+      if (node.handler) {
+        var handler = node.handler;
+
+        state.write(' catch (');
+        this[handler.param.type](handler.param, state);
+        state.write(') ');
+        this[handler.body.type](handler.body, state);
+      }
+      if (node.finalizer) {
+        state.write(' finally ');
+        this[node.finalizer.type](node.finalizer, state);
+      }
+    },
+    WhileStatement: function WhileStatement(node, state) {
+      state.write('while (');
+      this[node.test.type](node.test, state);
+      state.write(') ');
+      this[node.body.type](node.body, state);
+    },
+    DoWhileStatement: function DoWhileStatement(node, state) {
+      state.write('do ');
+      this[node.body.type](node.body, state);
+      state.write(' while (');
+      this[node.test.type](node.test, state);
+      state.write(');');
+    },
+    ForStatement: function ForStatement(node, state) {
+      state.write('for (');
+      if (node.init != null) {
+        var init = node.init;
+
+        if (init.type[0] === 'V') {
+          formatVariableDeclaration(state, init);
+        } else {
+          this[init.type](init, state);
+        }
+      }
+      state.write('; ');
+      if (node.test) {
+        this[node.test.type](node.test, state);
+      }
+      state.write('; ');
+      if (node.update) {
+        this[node.update.type](node.update, state);
+      }
+      state.write(') ');
+      this[node.body.type](node.body, state);
+    },
+
+    ForInStatement: ForInStatement = function ForInStatement(node, state) {
+      state.write('for (');
+      var left = node.left;
+
+      if (left.type[0] === 'V') {
+        formatVariableDeclaration(state, left);
+      } else {
+        this[left.type](left, state);
+      }
+      // Identifying whether node.type is `ForInStatement` or `ForOfStatement`
+      state.write(node.type[3] === 'I' ? ' in ' : ' of ');
+      this[node.right.type](node.right, state);
+      state.write(') ');
+      this[node.body.type](node.body, state);
+    },
+    ForOfStatement: ForInStatement,
+    DebuggerStatement: function DebuggerStatement(node, state) {
+      state.write('debugger;' + state.lineEnd);
+    },
+
+    FunctionDeclaration: FunctionDeclaration = function FunctionDeclaration(node, state) {
+      state.write((node.async ? 'async ' : '') + (node.generator ? 'function* ' : 'function ') + (node.id ? node.id.name : ''), node);
+      formatSequence(state, node.params);
+      state.write(' ');
+      this[node.body.type](node.body, state);
+    },
+    FunctionExpression: FunctionDeclaration,
+    VariableDeclaration: function VariableDeclaration(node, state) {
+      formatVariableDeclaration(state, node);
+      state.write(';');
+    },
+    VariableDeclarator: function VariableDeclarator(node, state) {
+      this[node.id.type](node.id, state);
+      if (node.init != null) {
+        state.write(' = ');
+        this[node.init.type](node.init, state);
+      }
+    },
+    ClassDeclaration: function ClassDeclaration(node, state) {
+      state.write('class ' + (node.id ? node.id.name + ' ' : ''), node);
+      if (node.superClass) {
+        state.write('extends ');
+        this[node.superClass.type](node.superClass, state);
+        state.write(' ');
+      }
+      this.ClassBody(node.body, state);
+    },
+    ImportDeclaration: function ImportDeclaration(node, state) {
+      state.write('import ');
+      var specifiers = node.specifiers;
+      var length = specifiers.length;
+      // NOTE: Once babili is fixed, put this after condition
+      // https://github.com/babel/babili/issues/430
+
+      var i = 0;
+      if (length > 0) {
+        for (; i < length;) {
+          if (i > 0) {
+            state.write(', ');
+          }
+          var specifier = specifiers[i];
+          var type = specifier.type[6];
+          if (type === 'D') {
+            // ImportDefaultSpecifier
+            state.write(specifier.local.name, specifier);
+            i++;
+          } else if (type === 'N') {
+            // ImportNamespaceSpecifier
+            state.write('* as ' + specifier.local.name, specifier);
+            i++;
+          } else {
+            // ImportSpecifier
+            break;
+          }
+        }
+        if (i < length) {
+          state.write('{');
+          for (;;) {
+            var _specifier = specifiers[i];
+            var name = _specifier.imported.name;
+
+            state.write(name, _specifier);
+            if (name !== _specifier.local.name) {
+              state.write(' as ' + _specifier.local.name);
+            }
+            if (++i < length) {
+              state.write(', ');
+            } else {
+              break;
+            }
+          }
+          state.write('}');
+        }
+        state.write(' from ');
+      }
+      this.Literal(node.source, state);
+      state.write(';');
+    },
+    ExportDefaultDeclaration: function ExportDefaultDeclaration(node, state) {
+      state.write('export default ');
+      this[node.declaration.type](node.declaration, state);
+      if (EXPRESSIONS_PRECEDENCE[node.declaration.type] && node.declaration.type[0] !== 'F') {
+        // All expression nodes except `FunctionExpression`
+        state.write(';');
+      }
+    },
+    ExportNamedDeclaration: function ExportNamedDeclaration(node, state) {
+      state.write('export ');
+      if (node.declaration) {
+        this[node.declaration.type](node.declaration, state);
+      } else {
+        state.write('{');
+        var specifiers = node.specifiers,
+            length = specifiers.length;
+
+        if (length > 0) {
+          for (var i = 0;;) {
+            var specifier = specifiers[i];
+            var name = specifier.local.name;
+
+            state.write(name, specifier);
+            if (name !== specifier.exported.name) {
+              state.write(' as ' + specifier.exported.name);
+            }
+            if (++i < length) {
+              state.write(', ');
+            } else {
+              break;
+            }
+          }
+        }
+        state.write('}');
+        if (node.source) {
+          state.write(' from ');
+          this.Literal(node.source, state);
+        }
+        state.write(';');
+      }
+    },
+    ExportAllDeclaration: function ExportAllDeclaration(node, state) {
+      state.write('export * from ');
+      this.Literal(node.source, state);
+      state.write(';');
+    },
+    MethodDefinition: function MethodDefinition(node, state) {
+      if (node.static) {
+        state.write('static ');
+      }
+      var kind = node.kind[0];
+      if (kind === 'g' || kind === 's') {
+        // Getter or setter
+        state.write(node.kind + ' ');
+      }
+      if (node.value.async) {
+        state.write('async ');
+      }
+      if (node.value.generator) {
+        state.write('*');
+      }
+      if (node.computed) {
+        state.write('[');
+        this[node.key.type](node.key, state);
+        state.write(']');
+      } else {
+        this[node.key.type](node.key, state);
+      }
+      formatSequence(state, node.value.params);
+      state.write(' ');
+      this[node.value.body.type](node.value.body, state);
+    },
+    ClassExpression: function ClassExpression(node, state) {
+      this.ClassDeclaration(node, state);
+    },
+    ArrowFunctionExpression: function ArrowFunctionExpression(node, state) {
+      state.write(node.async ? 'async ' : '', node);
+      var params = node.params;
+
+      if (params != null) {
+        // Omit parenthesis if only one named parameter
+        if (params.length === 1 && params[0].type[0] === 'I') {
+          // If params[0].type[0] starts with 'I', it can't be `ImportDeclaration` nor `IfStatement` and thus is `Identifier`
+          state.write(params[0].name, params[0]);
+        } else {
+          formatSequence(state, node.params);
+        }
+      }
+      state.write(' => ');
+      if (node.body.type[0] === 'O') {
+        // Body is an object expression
+        state.write('(');
+        this.ObjectExpression(node.body, state);
+        state.write(')');
+      } else {
+        this[node.body.type](node.body, state);
+      }
+    },
+    ThisExpression: function ThisExpression(node, state) {
+      state.write('this', node);
+    },
+    Super: function Super(node, state) {
+      state.write('super', node);
+    },
+
+    RestElement: RestElement = function RestElement(node, state) {
+      state.write('...');
+      this[node.argument.type](node.argument, state);
+    },
+    SpreadElement: RestElement,
+    YieldExpression: function YieldExpression(node, state) {
+      state.write(node.delegate ? 'yield*' : 'yield');
+      if (node.argument) {
+        state.write(' ');
+        this[node.argument.type](node.argument, state);
+      }
+    },
+    AwaitExpression: function AwaitExpression(node, state) {
+      state.write('await ');
+      if (node.argument) {
+        this[node.argument.type](node.argument, state);
+      }
+    },
+    TemplateLiteral: function TemplateLiteral(node, state) {
+      var quasis = node.quasis,
+          expressions = node.expressions;
+
+      state.write('`');
+      var length = expressions.length;
+
+      for (var i = 0; i < length; i++) {
+        var expression = expressions[i];
+        state.write(quasis[i].value.raw);
+        state.write('${');
+        this[expression.type](expression, state);
+        state.write('}');
+      }
+      state.write(quasis[quasis.length - 1].value.raw);
+      state.write('`');
+    },
+    TaggedTemplateExpression: function TaggedTemplateExpression(node, state) {
+      this[node.tag.type](node.tag, state);
+      this[node.quasi.type](node.quasi, state);
+    },
+
+    ArrayExpression: ArrayExpression = function ArrayExpression(node, state) {
+      state.write('[');
+      if (node.elements.length > 0) {
+        var elements = node.elements,
+            length = elements.length;
+
+        for (var i = 0;;) {
+          var element = elements[i];
+          if (element != null) {
+            this[element.type](element, state);
+          }
+          if (++i < length) {
+            state.write(', ');
+          } else {
+            if (element == null) {
+              state.write(', ');
+            }
+            break;
+          }
+        }
+      }
+      state.write(']');
+    },
+    ArrayPattern: ArrayExpression,
+    ObjectExpression: function ObjectExpression(node, state) {
+      var indent = state.indent.repeat(state.indentLevel++);
+      var lineEnd = state.lineEnd,
+          writeComments = state.writeComments;
+
+      var propertyIndent = indent + state.indent;
+      state.write('{');
+      if (node.properties.length > 0) {
+        state.write(lineEnd);
+        if (writeComments && node.comments != null) {
+          formatComments(state, node.comments, propertyIndent, lineEnd);
+        }
+        var comma = ',' + lineEnd;
+        var properties = node.properties,
+            length = properties.length;
+
+        for (var i = 0;;) {
+          var property = properties[i];
+          if (writeComments && property.comments != null) {
+            formatComments(state, property.comments, propertyIndent, lineEnd);
+          }
+          state.write(propertyIndent);
+          this.Property(property, state);
+          if (++i < length) {
+            state.write(comma);
+          } else {
+            break;
+          }
+        }
+        state.write(lineEnd);
+        if (writeComments && node.trailingComments != null) {
+          formatComments(state, node.trailingComments, propertyIndent, lineEnd);
+        }
+        state.write(indent + '}');
+      } else if (writeComments) {
+        if (node.comments != null) {
+          state.write(lineEnd);
+          formatComments(state, node.comments, propertyIndent, lineEnd);
+          if (node.trailingComments != null) {
+            formatComments(state, node.trailingComments, propertyIndent, lineEnd);
+          }
+          state.write(indent + '}');
+        } else if (node.trailingComments != null) {
+          state.write(lineEnd);
+          formatComments(state, node.trailingComments, propertyIndent, lineEnd);
+          state.write(indent + '}');
+        } else {
+          state.write('}');
+        }
+      } else {
+        state.write('}');
+      }
+      state.indentLevel--;
+    },
+    Property: function Property(node, state) {
+      if (node.method || node.kind[0] !== 'i') {
+        // Either a method or of kind `set` or `get` (not `init`)
+        this.MethodDefinition(node, state);
+      } else {
+        if (!node.shorthand) {
+          if (node.computed) {
+            state.write('[');
+            this[node.key.type](node.key, state);
+            state.write(']');
+          } else {
+            this[node.key.type](node.key, state);
+          }
+          state.write(': ');
+        }
+        this[node.value.type](node.value, state);
+      }
+    },
+    ObjectPattern: function ObjectPattern(node, state) {
+      state.write('{');
+      if (node.properties.length > 0) {
+        var properties = node.properties,
+            length = properties.length;
+
+        for (var i = 0;;) {
+          this[properties[i].type](properties[i], state);
+          if (++i < length) {
+            state.write(', ');
+          } else {
+            break;
+          }
+        }
+      }
+      state.write('}');
+    },
+    SequenceExpression: function SequenceExpression(node, state) {
+      formatSequence(state, node.expressions);
+    },
+    UnaryExpression: function UnaryExpression(node, state) {
+      if (node.prefix) {
+        state.write(node.operator);
+        if (node.operator.length > 1) {
+          state.write(' ');
+        }
+        if (EXPRESSIONS_PRECEDENCE[node.argument.type] < EXPRESSIONS_PRECEDENCE.UnaryExpression) {
+          state.write('(');
+          this[node.argument.type](node.argument, state);
+          state.write(')');
+        } else {
+          this[node.argument.type](node.argument, state);
+        }
+      } else {
+        // FIXME: This case never occurs
+        this[node.argument.type](node.argument, state);
+        state.write(node.operator);
+      }
+    },
+    UpdateExpression: function UpdateExpression(node, state) {
+      // Always applied to identifiers or members, no parenthesis check needed
+      if (node.prefix) {
+        state.write(node.operator);
+        this[node.argument.type](node.argument, state);
+      } else {
+        this[node.argument.type](node.argument, state);
+        state.write(node.operator);
+      }
+    },
+    AssignmentExpression: function AssignmentExpression(node, state) {
+      this[node.left.type](node.left, state);
+      state.write(' ' + node.operator + ' ');
+      this[node.right.type](node.right, state);
+    },
+    AssignmentPattern: function AssignmentPattern(node, state) {
+      this[node.left.type](node.left, state);
+      state.write(' = ');
+      this[node.right.type](node.right, state);
+    },
+
+    BinaryExpression: BinaryExpression = function BinaryExpression(node, state) {
+      if (node.operator === 'in') {
+        // Avoids confusion in `for` loops initializers
+        state.write('(');
+        formatBinaryExpressionPart(state, node.left, node, false);
+        state.write(' ' + node.operator + ' ');
+        formatBinaryExpressionPart(state, node.right, node, true);
+        state.write(')');
+      } else {
+        formatBinaryExpressionPart(state, node.left, node, false);
+        state.write(' ' + node.operator + ' ');
+        formatBinaryExpressionPart(state, node.right, node, true);
+      }
+    },
+    LogicalExpression: BinaryExpression,
+    ConditionalExpression: function ConditionalExpression(node, state) {
+      if (EXPRESSIONS_PRECEDENCE[node.test.type] > EXPRESSIONS_PRECEDENCE.ConditionalExpression) {
+        this[node.test.type](node.test, state);
+      } else {
+        state.write('(');
+        this[node.test.type](node.test, state);
+        state.write(')');
+      }
+      state.write(' ? ');
+      this[node.consequent.type](node.consequent, state);
+      state.write(' : ');
+      this[node.alternate.type](node.alternate, state);
+    },
+    NewExpression: function NewExpression(node, state) {
+      state.write('new ');
+      if (EXPRESSIONS_PRECEDENCE[node.callee.type] < EXPRESSIONS_PRECEDENCE.CallExpression || hasCallExpression(node.callee)) {
+        state.write('(');
+        this[node.callee.type](node.callee, state);
+        state.write(')');
+      } else {
+        this[node.callee.type](node.callee, state);
+      }
+      formatSequence(state, node['arguments']);
+    },
+    CallExpression: function CallExpression(node, state) {
+      if (EXPRESSIONS_PRECEDENCE[node.callee.type] < EXPRESSIONS_PRECEDENCE.CallExpression) {
+        state.write('(');
+        this[node.callee.type](node.callee, state);
+        state.write(')');
+      } else {
+        this[node.callee.type](node.callee, state);
+      }
+      formatSequence(state, node['arguments']);
+    },
+    MemberExpression: function MemberExpression(node, state) {
+      if (EXPRESSIONS_PRECEDENCE[node.object.type] < EXPRESSIONS_PRECEDENCE.MemberExpression) {
+        state.write('(');
+        this[node.object.type](node.object, state);
+        state.write(')');
+      } else {
+        this[node.object.type](node.object, state);
+      }
+      if (node.computed) {
+        state.write('[');
+        this[node.property.type](node.property, state);
+        state.write(']');
+      } else {
+        state.write('.');
+        this[node.property.type](node.property, state);
+      }
+    },
+    MetaProperty: function MetaProperty(node, state) {
+      state.write(node.meta.name + '.' + node.property.name, node);
+    },
+    Identifier: function Identifier(node, state) {
+      state.write(node.name, node);
+    },
+    Literal: function Literal(node, state) {
+      if (node.raw != null) {
+        state.write(node.raw, node);
+      } else if (node.regex != null) {
+        this.RegExpLiteral(node, state);
+      } else {
+        state.write(stringify(node.value), node);
+      }
+    },
+    RegExpLiteral: function RegExpLiteral(node, state) {
+      var regex = node.regex;
+
+      state.write('/' + regex.pattern + '/' + regex.flags, node);
+    }
+  };
+
+  var EMPTY_OBJECT = {};
+
+  var State = function () {
+    function State(options) {
+      _classCallCheck(this, State);
+
+      var setup = options == null ? EMPTY_OBJECT : options;
+      this.output = '';
+      // Functional options
+      if (setup.output != null) {
+        this.output = setup.output;
+        this.write = this.writeToStream;
+      } else {
+        this.output = '';
+      }
+      this.generator = setup.generator != null ? setup.generator : baseGenerator;
+      // Formating setup
+      this.indent = setup.indent != null ? setup.indent : '  ';
+      this.lineEnd = setup.lineEnd != null ? setup.lineEnd : '\n';
+      this.indentLevel = setup.startingIndentLevel != null ? setup.startingIndentLevel : 0;
+      this.writeComments = setup.comments ? setup.comments : false;
+      // Source map
+      if (setup.sourceMap != null) {
+        this.write = setup.output == null ? this.writeAndMap : this.writeToStreamAndMap;
+        this.sourceMap = setup.sourceMap;
+        this.line = 1;
+        this.column = 0;
+        this.lineEndSize = this.lineEnd.split('\n').length - 1;
+        this.mapping = {
+          original: null,
+          generated: this,
+          name: undefined,
+          source: setup.sourceMap.file || setup.sourceMap._file
+        };
+      }
+    }
+
+    State.prototype.write = function write(code) {
+      this.output += code;
+    };
+
+    State.prototype.writeToStream = function writeToStream(code) {
+      this.output.write(code);
+    };
+
+    State.prototype.writeAndMap = function writeAndMap(code, node) {
+      this.output += code;
+      this.map(code, node);
+    };
+
+    State.prototype.writeToStreamAndMap = function writeToStreamAndMap(code, node) {
+      this.output.write(code);
+      this.map(code, node);
+    };
+
+    State.prototype.map = function map(code, node) {
+      if (node != null && node.loc != null) {
+        var mapping = this.mapping;
+
+        mapping.original = node.loc.start;
+        mapping.name = node.name;
+        this.sourceMap.addMapping(mapping);
+      }
+      if (code.length > 0) {
+        if (this.lineEndSize > 0) {
+          if (code.endsWith(this.lineEnd)) {
+            this.line += this.lineEndSize;
+            this.column = 0;
+          } else if (code[code.length - 1] === '\n') {
+            // Case of inline comment
+            this.line++;
+            this.column = 0;
+          } else {
+            this.column += code.length;
+          }
+        } else {
+          if (code[code.length - 1] === '\n') {
+            // Case of inline comment
+            this.line++;
+            this.column = 0;
+          } else {
+            this.column += code.length;
+          }
+        }
+      }
+    };
+
+    State.prototype.toString = function toString() {
+      return this.output;
+    };
+
+    return State;
+  }();
+
+  function generate(node, options) {
+    /*
+    Returns a string representing the rendered code of the provided AST `node`.
+    The `options` are:
+     - `indent`: string to use for indentation (defaults to `␣␣`)
+    - `lineEnd`: string to use for line endings (defaults to `\n`)
+    - `startingIndentLevel`: indent level to start from (defaults to `0`)
+    - `comments`: generate comments if `true` (defaults to `false`)
+    - `output`: output stream to write the rendered code to (defaults to `null`)
+    - `generator`: custom code generator (defaults to `baseGenerator`)
+    */
+    var state = new State(options);
+    // Travel through the AST node and generate the code
+    state.generator[node.type](node, state);
+    return state.output;
+  }
+});
+
+
+},{}],2:[function(require,module,exports){
+console.dir(eval(require("/Users/soft/Desktop/workspace/aran-access/demo/instrument/identity-wrapper.js")("debugger;\nvar x = (1).toString();\nconsole.log(x);")));
+},{"/Users/soft/Desktop/workspace/aran-access/demo/instrument/identity-wrapper.js":3}],3:[function(require,module,exports){
 (function (global){
 const Acorn = require("acorn");
 const Aran = require("aran");
@@ -19,17 +1075,17 @@ const instrument = (script, scope) =>
   Astring.generate(aran.weave(Acorn.parse(script), pointcut, scope));
 const access = AranAccess({
   instrument: instrument,
-  enter: (value) => value,
-  leave: (value) => value
+  enter: (value) => ({inner:value}),
+  leave: (value) => value.inner
 });
 const pointcut = Object.keys(access.advice);
 global.ADVICE = access.advice;
 global.eval(Astring.generate(aran.setup()));
 module.exports = (script, source) => instrument(script);
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"acorn":4,"aran":23,"aran-access":3,"astring":44}],3:[function(require,module,exports){
+},{"acorn":5,"aran":24,"aran-access":4,"astring":1}],4:[function(require,module,exports){
 module.exports = require("../../src/main.js");
-},{"../../src/main.js":47}],4:[function(require,module,exports){
+},{"../../src/main.js":47}],5:[function(require,module,exports){
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
@@ -3896,7 +4952,7 @@ Object.defineProperty(exports, '__esModule', { value: true });
 
 })));
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 const Reflect_apply = Reflect.apply;
@@ -4029,19 +5085,17 @@ exports.object = (properties) => ({
   type: "ObjectExpression",
   AranPure: ArrayLite.every(
     properties,
-    (property) => property[0].AranPure && property[1].AranPure),
+    (property) => property[1].AranPure),
   properties: properties.map((property) => ({
     type: "Property",
-    computed: !identifiable(property[0]),
+    computed: false,
     shorthand: false,
     method: false,
     kind: "init",
-    key: (
-      identifiable(property[0]) ?
-      {
-        type: "Identifier",
-        name: property[0].value} :
-      property[0]),
+    key: {
+      type: "Literal",
+      value: property[0]
+    },
     value: property[1]
   }))});
 
@@ -4368,7 +5422,7 @@ exports.With = (expression, statements) => [
     object: expression,
     body: block(statements)}];
 
-},{"array-lite":43}],6:[function(require,module,exports){
+},{"array-lite":44}],7:[function(require,module,exports){
 
 /////////////
 // Program //
@@ -4383,7 +5437,7 @@ exports.PROGRAM = ["boolean", ["list", "statement"]];
 exports.read = ["identifier"];
 exports.write = ["identifier", "expression"];
 exports.array = [["list", "expression"]];
-exports.object = [["list", {0:"expression",1:"expression"}]];
+exports.object = [["list", {0:"string",1:"expression"}]];
 exports.closure = ["boolean", ["list", "statement"]];
 exports.function = ["boolean", ["list", "identifier"], ["list", "statement"]];
 exports.primitive = ["primitive"];
@@ -4419,7 +5473,7 @@ exports.Debugger = [];
 exports.Switch = [["list", {0:"expression", 1:["statement"]}]];
 exports.With = ["expression", ["list", "statement"]];
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 
 const Util = require("util");
 const ArrayLite = require("array-lite");
@@ -4560,7 +5614,7 @@ exports.kind = (kind) => {
     throw new Error("[kind] unknown: "+Util.inspect(kind));
 };
 
-},{"array-lite":43,"util":53}],8:[function(require,module,exports){
+},{"array-lite":44,"util":53}],9:[function(require,module,exports){
 
 const Util = require("util");
 const ArrayLite = require("array-lite");
@@ -4603,7 +5657,7 @@ const duck = (type, value) => {
   }
 };
 
-},{"../estree.js":9,"./arguments-type.js":6,"./check.js":7,"array-lite":43,"util":53}],9:[function(require,module,exports){
+},{"../estree.js":10,"./arguments-type.js":7,"./check.js":8,"array-lite":44,"util":53}],10:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 
@@ -4680,11 +5734,14 @@ exports.object = (properties) => ({
   type: "ObjectExpression",
   properties: properties.map((property) => ({
     type: "Property",
-    computed: true,
+    computed: false,
     shorthand: false,
     method: false,
     kind: "init",
-    key: property[0],
+    key: {
+      type: "Literal",
+      value: property[0]
+    },
     value: property[1]
   }))});
 
@@ -4996,14 +6053,14 @@ exports.With = (expression, statements) => [
       type: "BlockStatement",
       body: statements}}];
 
-},{"array-lite":43}],10:[function(require,module,exports){
+},{"array-lite":44}],11:[function(require,module,exports){
 
 exports.String = require("./string.js");
 exports.Estree = require("./estree.js");
 exports.EstreeValid = require("./estree-valid");
 exports.EstreeOptimized = require("./estree-optimized.js");
 
-},{"./estree-optimized.js":5,"./estree-valid":8,"./estree.js":9,"./string.js":11}],11:[function(require,module,exports){
+},{"./estree-optimized.js":6,"./estree-valid":9,"./estree.js":10,"./string.js":12}],12:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 const stringify = JSON.stringify;
@@ -5265,7 +6322,7 @@ exports.With = (expression, statements) => [
     ArrayLite.join(statements, "") +
     "}")];
 
-},{"array-lite":43}],12:[function(require,module,exports){
+},{"array-lite":44}],13:[function(require,module,exports){
 (function (global){
 
 const Error = global.Error;
@@ -5296,7 +6353,7 @@ module.exports = (patterns) => {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],13:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 (function (global){
 
 const ArrayLite = require("array-lite");
@@ -5308,6 +6365,8 @@ const SanitizeIdentifier = require("./sanitize-identifier.js");
 const ContainArguments = require("./contain-arguments.js");
 const Boolean = global.Boolean;
 const Array_isArray = Array.isArray;
+
+const first = (array) => array[0];
 
 module.exports = (pointcut) => {
 
@@ -5467,7 +6526,7 @@ module.exports = (pointcut) => {
                       ArrayLite.map(
                         ARAN.node.AranScope,
                         (string) => [
-                          ARAN.build.primitive(string),
+                          string,
                           ARAN.build.read(string)])) :
                     ARAN.build.primitive(null))))),
             statements,
@@ -5528,6 +6587,10 @@ module.exports = (pointcut) => {
       "binary"],
     (key) => cut[key] = traps[key]);
 
+  cut.object = (properties) => traps.object(
+    ArrayLite.map(properties, first),
+    ARAN.build.object(properties));
+
   cut.array = (elements) => traps.array(
     ARAN.build.array(elements));
 
@@ -5580,19 +6643,19 @@ module.exports = (pointcut) => {
                 ARAN.build.object(
                   [
                     [
-                      ARAN.build.primitive("callee"),
+                      "callee",
                       ARAN.build.read("callee")],
                     [
-                      ARAN.build.primitive("new"),
+                      "new",
                       ARAN.build.binary(
                         "!==",
                         ARAN.build.read("new.target"),
                         ARAN.build.primitive(void 0))],
                     [
-                      ARAN.build.primitive("this"),
+                      "this",
                       ARAN.build.read("this")],
                     [
-                      ARAN.build.primitive("arguments"),
+                      "arguments",
                       ARAN.build.read("arguments")]]))),
             statements)),
         "length",
@@ -5701,7 +6764,7 @@ module.exports = (pointcut) => {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../meta.js":24,"./contain-arguments.js":12,"./name.js":14,"./parse-label.js":15,"./sanitize-identifier.js":16,"./traps":21,"array-lite":43}],14:[function(require,module,exports){
+},{"../meta.js":25,"./contain-arguments.js":13,"./name.js":15,"./parse-label.js":16,"./sanitize-identifier.js":17,"./traps":22,"array-lite":44}],15:[function(require,module,exports){
 
 module.exports = (node) => {
   if (node.id)
@@ -5728,7 +6791,7 @@ module.exports = (node) => {
   return "";
 };
 
-},{}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 
 const Reflect_apply = Reflect.apply;
 const String_prototype_substring = String.prototype.substring;
@@ -5740,7 +6803,7 @@ exports.core = (label) => (
   null :
   Reflect_apply(String_prototype_substring, label, [1]));
 
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 (function (global){
 const Reflect_apply = global.Reflect.apply;
 const RegExp_prototype_test = global.RegExp.prototype.test;
@@ -5753,7 +6816,7 @@ module.exports = (identifier) => (
     "$$" + identifier :
     identifier));
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],17:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 (function (global){
 const ArrayLite = require("array-lite");
 const Meta = require("../../../meta.js");
@@ -5783,12 +6846,12 @@ ArrayLite.forEach(
   (key) => exports[key] = last);
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../../meta.js":24,"./trap-arguments.js":20,"array-lite":43}],18:[function(require,module,exports){
+},{"../../../meta.js":25,"./trap-arguments.js":21,"array-lite":44}],19:[function(require,module,exports){
 
 exports.true = require("./intercept.js");
 exports.false = require("./forward.js");
 
-},{"./forward.js":17,"./intercept.js":19}],19:[function(require,module,exports){
+},{"./forward.js":18,"./intercept.js":20}],20:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 const Meta = require("../../../meta.js");
@@ -5809,7 +6872,7 @@ ArrayLite.forEach(
             ARAN.build.primitive(ARAN.node.AranSerial)]));
     }));
 
-},{"../../../meta.js":24,"./trap-arguments":20,"array-lite":43}],20:[function(require,module,exports){
+},{"../../../meta.js":25,"./trap-arguments":21,"array-lite":44}],21:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 
@@ -5817,8 +6880,8 @@ const identity = (argument) => argument;
 const primitive = (primitive) => ARAN.build.primitive(primitive);
 const read = (string) => ARAN.build.read(string);
 const array = (expressions) => ARAN.build.array(expressions);
-const object = (expressions) => ARAN.build.array(
-  ArrayLite.map(expressions, array));
+const order = (strings) => ARAN.build.array(
+  ArrayLite.map(strings, ARAN.build.primitive));
 
 exports.computers = {
   // Combiners //
@@ -5828,13 +6891,13 @@ exports.computers = {
   delete: [identity, identity],
   get: [identity, identity],
   invoke: [identity, identity, array],
-  object: [object],
   set: [identity, identity, identity],
   unary: [primitive, identity]};
 
 exports.modifiers = {
   // Combiners //
   array: [identity],
+  object: [order, identity],
   // Producers //
   arrival: [primitive, identity],
   begin: [primitive, identity],
@@ -5871,7 +6934,7 @@ exports.informers = {
   swap: [primitive, primitive],
   try: []};
 
-},{"array-lite":43}],21:[function(require,module,exports){
+},{"array-lite":44}],22:[function(require,module,exports){
 (function (global){
 
 const ArrayLite = require("array-lite");
@@ -5910,7 +6973,7 @@ module.exports = (pointcut) => {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./fork":18,"./trap-names.js":22,"array-lite":43}],22:[function(require,module,exports){
+},{"./fork":19,"./trap-names.js":23,"array-lite":44}],23:[function(require,module,exports){
 
 module.exports = [
   ///////////////
@@ -5966,7 +7029,7 @@ module.exports = [
   "swap",
   "try"];
 
-},{}],23:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 (function (global){
 
 const ArrayLite = require("array-lite");
@@ -6024,6 +7087,7 @@ module.exports = (options) => {
     } :
     (serial) => state.nodes[serial]);
   return {
+    output: options.output,
     namespace: options.namespace,
     setup: () => {
       const temporary = global.ARAN;
@@ -6068,7 +7132,7 @@ module.exports = (options) => {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./build":10,"./cut":13,"./meta.js":24,"./weave":26,"array-lite":43}],24:[function(require,module,exports){
+},{"./build":11,"./cut":14,"./meta.js":25,"./weave":27,"array-lite":44}],25:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 
@@ -6130,27 +7194,27 @@ exports.define = (expression1, string, expression2, boolean1, boolean2, boolean3
       ArrayLite.concat(
         [
           [
-            ARAN.build.primitive("value"),
+            "value",
             expression2]],
         (
           boolean1 ?
           [
             [
-              ARAN.build.primitive("writable"),
+              "writable",
               ARAN.build.primitive(true)]] :
           []),
         (
           boolean2 ?
           [
             [
-              ARAN.build.primitive("enumerable"),
+              "enumerable",
               ARAN.build.primitive(true)]] :
           []),
         (
           boolean3 ?
           [
             [
-              ARAN.build.primitive("configurable"),
+              "configurable",
               ARAN.build.primitive(true)]] :
           [])))]);
 
@@ -6261,7 +7325,7 @@ exports.SETUP = () => ARAN.build.PROGRAM(
         ARAN.build.object(
           [
             [
-              ARAN.build.primitive("has"),
+              "has",
               ARAN.build.function(
                 false,
                 ["target", "key"],
@@ -6295,7 +7359,7 @@ exports.SETUP = () => ARAN.build.PROGRAM(
                       ARAN.build.read("key"),
                       ARAN.build.read("target")))))],
             [
-              ARAN.build.primitive("get"),
+              "get",
               ARAN.build.function(
                 false,
                 ["target", "key", "receiver"],
@@ -6318,7 +7382,7 @@ exports.SETUP = () => ARAN.build.PROGRAM(
                       ARAN.build.read("target"),
                       ARAN.build.read("key")))))],
             [
-              ARAN.build.primitive("set"),
+              "set",
               ARAN.build.function(
                 false,
                 ["target", "key", "value", "receiver"],
@@ -6330,7 +7394,7 @@ exports.SETUP = () => ARAN.build.PROGRAM(
                       ARAN.build.read("key"),
                       ARAN.build.read("value")))))],
             [
-              ARAN.build.primitive("deleteProperty"),
+              "deleteProperty",
               ARAN.build.function(
                 false,
                 ["target", "key"],
@@ -6363,14 +7427,14 @@ exports.SETUP = () => ARAN.build.PROGRAM(
           ARAN.build.primitive("SANDBOX_HANDLERS"),
           ARAN.build.object([
             [
-              ARAN.build.primitive("has"),
+              "has",
               ARAN.build.function(
                 false,
                 ["target", "key"],
                 ARAN.build.Return(
                   ARAN.build.primitive(true)))],
             [
-              ARAN.build.primitive("get"),
+              "get",
               ARAN.build.function(
                 false,
                 ["target", "key", "receiver"],
@@ -6407,14 +7471,14 @@ exports.SETUP = () => ARAN.build.PROGRAM(
                           ARAN.build.read("key"),
                           ARAN.build.primitive(" is not defined"))]))))],
             [
-              ARAN.build.primitive("set"),
+              "set",
               ARAN.build.get(
                 ARAN.build.get(
                   ARAN.build.read(ARAN.namespace),
                   ARAN.build.primitive("WITH_HANDLERS")),
                 ARAN.build.primitive("set"))],
             [
-              ARAN.build.primitive("deleteProperty"),
+              "deleteProperty",
               ARAN.build.get(
                 ARAN.build.get(
                   ARAN.build.read(ARAN.namespace),
@@ -6442,21 +7506,21 @@ exports.SETUP = () => ARAN.build.PROGRAM(
           ARAN.build.object(
             [
               [
-                ARAN.build.primitive("has"),
+                "has",
                 ARAN.build.get(
                   ARAN.build.get(
                     ARAN.build.read(ARAN.namespace),
                     ARAN.build.primitive("SANDBOX_HANDLERS")),
                   ARAN.build.primitive("has"))],
               [
-                ARAN.build.primitive("get"),
+                "get",
                 ARAN.build.get(
                   ARAN.build.get(
                     ARAN.build.read(ARAN.namespace),
                     ARAN.build.primitive("SANDBOX_HANDLERS")),
                   ARAN.build.primitive("get"))],
               [
-                ARAN.build.primitive("set"),
+                "set",
                 ARAN.build.function(
                   false,
                   ["target", "key", "value", "receiver"],
@@ -6483,7 +7547,7 @@ exports.SETUP = () => ARAN.build.PROGRAM(
                               ARAN.build.read("key"),
                               ARAN.build.primitive(" is not defined"))])))))],
               [
-                ARAN.build.primitive("deleteProperty"),
+                "deleteProperty",
                 ARAN.build.get(
                   ARAN.build.get(
                     ARAN.build.read(ARAN.namespace),
@@ -6669,7 +7733,7 @@ const restore = () => ARAN.build.If(
     []),
   []);
 
-},{"array-lite":43}],25:[function(require,module,exports){
+},{"array-lite":44}],26:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 
@@ -6737,7 +7801,7 @@ visitors.DebuggerStatement = (node, last) => last;
 visitors.FunctionDeclaration = (ndoe, last) => last;
 visitors.VariableDeclaration = (node, last) => last;
 
-},{"array-lite":43}],26:[function(require,module,exports){
+},{"array-lite":44}],27:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 const Meta = require("../meta.js");
@@ -6774,7 +7838,7 @@ module.exports = (root, scope) => {
       statements1));
 };
 
-},{"../meta.js":24,"./completion.js":25,"./interim.js":27,"./visit":41,"array-lite":43}],27:[function(require,module,exports){
+},{"../meta.js":25,"./completion.js":26,"./interim.js":28,"./visit":42,"array-lite":44}],28:[function(require,module,exports){
 
 exports.hoist = (information, expression) => {
   ARAN.hoisted[ARAN.hoisted.length] = ARAN.build.Declare(
@@ -6793,7 +7857,7 @@ exports.write = (information, expression) => ARAN.build.write(
   ARAN.namespace +"_" + ARAN.node.AranSerial + "_" + information,
   expression);
 
-},{}],28:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 const Visit = require("../visit");
@@ -6805,7 +7869,7 @@ exports.Body = (node) => (
     Visit.Statement) :
   Visit.Statement(node));
 
-},{"../visit":41,"array-lite":43}],29:[function(require,module,exports){
+},{"../visit":42,"array-lite":44}],30:[function(require,module,exports){
 (function (global){
 
 const ArrayLite = require("array-lite");
@@ -6992,7 +8056,7 @@ exports.closure = (node) => {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../interim.js":27,"../visit":41,"./index.js":32,"array-lite":43}],30:[function(require,module,exports){
+},{"../interim.js":28,"../visit":42,"./index.js":33,"array-lite":44}],31:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 
@@ -7005,7 +8069,7 @@ exports.Completion = (statements) => (
     statements) :
   statements);
 
-},{"array-lite":43}],31:[function(require,module,exports){
+},{"array-lite":44}],32:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 const Interim = require("../interim.js");
@@ -7032,7 +8096,7 @@ exports.Declaration = (node) => ArrayLite.flatenMap(
           []) :
         local))));
 
-},{"../interim.js":27,"../visit":41,"./index.js":32,"array-lite":43}],32:[function(require,module,exports){
+},{"../interim.js":28,"../visit":42,"./index.js":33,"array-lite":44}],33:[function(require,module,exports){
 
 Object.assign(
   exports,
@@ -7045,7 +8109,7 @@ Object.assign(
   require("./property.js"),
   require("./rest.js"));
 
-},{"./body.js":28,"./closure.js":29,"./completion.js":30,"./declaration.js":31,"./loop.js":33,"./pattern":37,"./property.js":38,"./rest.js":39}],33:[function(require,module,exports){
+},{"./body.js":29,"./closure.js":30,"./completion.js":31,"./declaration.js":32,"./loop.js":34,"./pattern":38,"./property.js":39,"./rest.js":40}],34:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 const Visit = require("../visit");
@@ -7080,7 +8144,7 @@ exports.Loop = (begin, test, before, body, after) => {
   return result;
 };
 
-},{"../visit":41,"./index.js":32,"array-lite":43}],34:[function(require,module,exports){
+},{"../visit":42,"./index.js":33,"array-lite":44}],35:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 const Interim = require("../../interim.js");
@@ -7107,7 +8171,7 @@ exports.assign = (pattern, expression) => (
       pattern,
       expression)));
 
-},{"../../interim.js":27,"../../visit":41,"../index.js":32,"./common.js":35,"array-lite":43}],35:[function(require,module,exports){
+},{"../../interim.js":28,"../../visit":42,"../index.js":33,"./common.js":36,"array-lite":44}],36:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 const Interim = require("../../interim.js");
@@ -7224,7 +8288,7 @@ module.exports = (transformers, pattern, string) => {
   return visit(pattern, string);
 };
 
-},{"../../interim.js":27,"../../visit":41,"../index.js":32,"array-lite":43}],36:[function(require,module,exports){
+},{"../../interim.js":28,"../../visit":42,"../index.js":33,"array-lite":44}],37:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 const Interim = require("../../interim.js");
@@ -7256,12 +8320,12 @@ exports.Declare = (kind, pattern, expression) => (
       Interim.hoist("right", expression)),
     Common(transformerss[kind], pattern, "right")));
 
-},{"../../interim.js":27,"./common.js":35,"array-lite":43}],37:[function(require,module,exports){
+},{"../../interim.js":28,"./common.js":36,"array-lite":44}],38:[function(require,module,exports){
 
 exports.assign = require("./assign.js").assign;
 exports.Declare = require("./declare.js").Declare;
 
-},{"./assign.js":34,"./declare.js":36}],38:[function(require,module,exports){
+},{"./assign.js":35,"./declare.js":37}],39:[function(require,module,exports){
 
 const Visit = require("../visit");
 
@@ -7273,7 +8337,7 @@ exports.property = (node) => (
     ARAN.cut.primitive(node.property.name) :
     ARAN.cut.primitive(node.property.value)));
 
-},{"../visit":41}],39:[function(require,module,exports){
+},{"../visit":42}],40:[function(require,module,exports){
 
 const ArrayLite = require("array-lite");
 
@@ -7329,7 +8393,7 @@ exports.rest = () => ARAN.build.function(
     ARAN.build.Return(
       ARAN.build.read("array"))));
 
-},{"array-lite":43}],40:[function(require,module,exports){
+},{"array-lite":44}],41:[function(require,module,exports){
 (function (global){
 
 const ArrayLite = require("array-lite");
@@ -7353,17 +8417,20 @@ exports.ArrayExpression = (node) => ARAN.cut.array(
       ARAN.cut.primitive(void 0))));
 
 exports.ObjectExpression = (node) => (
-  ArrayLite.every(
-    node.properties,
-    (property) => property.kind === "init") ?
+  (
+    ArrayLite.every(
+      node.properties,
+      (property) => property.kind === "init" && (!property.computed || property.key.type === "Literal")) &&
+    ArrayLite.every(
+      ArrayLite.map(
+        node.properties,
+        (property) => property.key.type === "Identifier" ? property.key.name : String(property.key.value)),
+      (string, index, array) => ArrayLite.lastIndexOf(array, string) === index)) ? 
   ARAN.cut.object(
     ArrayLite.map(
       node.properties,
       (property) => [
-        Util.property(
-          {
-            computed: property.computed,
-            property: property.key}),
+        property.key.type === "Identifier" ? property.key.name : String(property.key.value),
         Visit.expression(property.value)])) :
   ArrayLite.reduce(
     node.properties,
@@ -7382,23 +8449,22 @@ exports.ObjectExpression = (node) => (
           ArrayLite.concat(
             [
               [
-                ARAN.cut.primitive("configurable"),
+                "configurable",
                 ARAN.cut.primitive(true)]],
             [
               [
-                ARAN.cut.primitive("enumerable"),
+                "enumerable",
                 ARAN.cut.primitive(true)]],
             (
               property.kind === "init" ?
               [
                 [
-                  ARAN.cut.primitive("writable"),
+                  "writable",
                   ARAN.cut.primitive(true)]] :
               []),
             [
               [
-                ARAN.cut.primitive(
-                  property.kind === "init" ? "value" : property.kind),
+                property.kind === "init" ? "value" : property.kind,
                 Visit.expression(property.value)]]))]),
     ARAN.cut.object([])));
 
@@ -7729,7 +8795,7 @@ exports.Literal = (node) => (
   ARAN.cut.primitive(node.value));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../meta.js":24,"../interim.js":27,"../util":32,"./index.js":41,"array-lite":43}],41:[function(require,module,exports){
+},{"../../meta.js":25,"../interim.js":28,"../util":33,"./index.js":42,"array-lite":44}],42:[function(require,module,exports){
 
 const Expression = require("./expression.js");
 const Statement = require("./statement.js");
@@ -7769,7 +8835,7 @@ const visit = (visitors) => (node) => {
 exports.Statement = visit(Statement);
 exports.expression = visit(Expression);
 
-},{"./expression.js":40,"./statement.js":42}],42:[function(require,module,exports){
+},{"./expression.js":41,"./statement.js":43}],43:[function(require,module,exports){
 
 // The visitors of this file returns a list of statement.
 // This is safe provided that control structures (if|while|do-while|for|for-in|label) have a statement block as body.
@@ -8197,7 +9263,7 @@ exports.FunctionDeclaration = (node) => {
 
 exports.VariableDeclaration = (node) => Util.Declaration(node);
 
-},{"../../meta.js":24,"../interim.js":27,"../util":32,"./index.js":41,"array-lite":43}],43:[function(require,module,exports){
+},{"../../meta.js":25,"../interim.js":28,"../util":33,"./index.js":42,"array-lite":44}],44:[function(require,module,exports){
 
 exports.join = function (array, separator) {
   if (array.length === 0)
@@ -8412,1062 +9478,6 @@ exports.slice = function (array, index, length) {
   }
   return result;
 };
-
-},{}],44:[function(require,module,exports){
-(function (global, factory) {
-  if (typeof define === "function" && define.amd) {
-    define(['exports'], factory);
-  } else if (typeof exports !== "undefined") {
-    factory(exports);
-  } else {
-    var mod = {
-      exports: {}
-    };
-    factory(mod.exports);
-    global.astring = mod.exports;
-  }
-})(this, function (exports) {
-  'use strict';
-
-  exports.__esModule = true;
-  exports.generate = generate;
-
-  function _classCallCheck(instance, Constructor) {
-    if (!(instance instanceof Constructor)) {
-      throw new TypeError("Cannot call a class as a function");
-    }
-  }
-
-  var stringify = JSON.stringify;
-
-
-  /* istanbul ignore if */
-  if (!String.prototype.repeat) {
-    /* istanbul ignore next */
-    throw new Error('String.prototype.repeat is undefined, see https://github.com/davidbonnet/astring#installation');
-  }
-
-  /* istanbul ignore if */
-  if (!String.prototype.endsWith) {
-    /* istanbul ignore next */
-    throw new Error('String.prototype.endsWith is undefined, see https://github.com/davidbonnet/astring#installation');
-  }
-
-  var OPERATOR_PRECEDENCE = {
-    '||': 3,
-    '&&': 4,
-    '|': 5,
-    '^': 6,
-    '&': 7,
-    '==': 8,
-    '!=': 8,
-    '===': 8,
-    '!==': 8,
-    '<': 9,
-    '>': 9,
-    '<=': 9,
-    '>=': 9,
-    in: 9,
-    instanceof: 9,
-    '<<': 10,
-    '>>': 10,
-    '>>>': 10,
-    '+': 11,
-    '-': 11,
-    '*': 12,
-    '%': 12,
-    '/': 12,
-    '**': 13
-
-    // Enables parenthesis regardless of precedence
-  };var NEEDS_PARENTHESES = 17;
-
-  var EXPRESSIONS_PRECEDENCE = {
-    // Definitions
-    ArrayExpression: 20,
-    TaggedTemplateExpression: 20,
-    ThisExpression: 20,
-    Identifier: 20,
-    Literal: 18,
-    TemplateLiteral: 20,
-    Super: 20,
-    SequenceExpression: 20,
-    // Operations
-    MemberExpression: 19,
-    CallExpression: 19,
-    NewExpression: 19,
-    // Other definitions
-    ArrowFunctionExpression: NEEDS_PARENTHESES,
-    ClassExpression: NEEDS_PARENTHESES,
-    FunctionExpression: NEEDS_PARENTHESES,
-    ObjectExpression: NEEDS_PARENTHESES,
-    // Other operations
-    UpdateExpression: 16,
-    UnaryExpression: 15,
-    BinaryExpression: 14,
-    LogicalExpression: 13,
-    ConditionalExpression: 4,
-    AssignmentExpression: 3,
-    AwaitExpression: 2,
-    YieldExpression: 2,
-    RestElement: 1
-  };
-
-  function formatSequence(state, nodes) {
-    var generator = state.generator;
-
-    state.write('(');
-    if (nodes != null && nodes.length > 0) {
-      generator[nodes[0].type](nodes[0], state);
-      var length = nodes.length;
-
-      for (var i = 1; i < length; i++) {
-        var param = nodes[i];
-        state.write(', ');
-        generator[param.type](param, state);
-      }
-    }
-    state.write(')');
-  }
-
-  function expressionNeedsParenthesis(node, parentNode, isRightHand) {
-    var nodePrecedence = EXPRESSIONS_PRECEDENCE[node.type];
-    if (nodePrecedence === NEEDS_PARENTHESES) {
-      return true;
-    }
-    var parentNodePrecedence = EXPRESSIONS_PRECEDENCE[parentNode.type];
-    if (nodePrecedence !== parentNodePrecedence) {
-      // Different node types
-      return nodePrecedence < parentNodePrecedence;
-    }
-    if (nodePrecedence !== 13 && nodePrecedence !== 14) {
-      // Not a `LogicalExpression` or `BinaryExpression`
-      return false;
-    }
-    if (node.operator === '**' && parentNode.operator === '**') {
-      // Exponentiation operator has right-to-left associativity
-      return !isRightHand;
-    }
-    if (isRightHand) {
-      // Parenthesis are used if both operators have the same precedence
-      return OPERATOR_PRECEDENCE[node.operator] <= OPERATOR_PRECEDENCE[parentNode.operator];
-    }
-    return OPERATOR_PRECEDENCE[node.operator] < OPERATOR_PRECEDENCE[parentNode.operator];
-  }
-
-  function formatBinaryExpressionPart(state, node, parentNode, isRightHand) {
-    var generator = state.generator;
-
-    if (expressionNeedsParenthesis(node, parentNode, isRightHand)) {
-      state.write('(');
-      generator[node.type](node, state);
-      state.write(')');
-    } else {
-      generator[node.type](node, state);
-    }
-  }
-
-  function reindent(state, text, indent, lineEnd) {
-    /*
-    Writes into `state` the `text` string reindented with the provided `indent`.
-    */
-    var lines = text.split('\n');
-    var end = lines.length - 1;
-    state.write(lines[0].trim());
-    if (end > 0) {
-      state.write(lineEnd);
-      for (var i = 1; i < end; i++) {
-        state.write(indent + lines[i].trim() + lineEnd);
-      }
-      state.write(indent + lines[end].trim());
-    }
-  }
-
-  function formatComments(state, comments, indent, lineEnd) {
-    var length = comments.length;
-
-    for (var i = 0; i < length; i++) {
-      var comment = comments[i];
-      state.write(indent);
-      if (comment.type[0] === 'L') {
-        // Line comment
-        state.write('// ' + comment.value.trim() + '\n');
-      } else {
-        // Block comment
-        state.write('/*');
-        reindent(state, comment.value, indent, lineEnd);
-        state.write('*/' + lineEnd);
-      }
-    }
-  }
-
-  function hasCallExpression(node) {
-    /*
-    Returns `true` if the provided `node` contains a call expression and `false` otherwise.
-    */
-    var currentNode = node;
-    while (currentNode != null) {
-      var _currentNode = currentNode,
-          type = _currentNode.type;
-
-      if (type[0] === 'C' && type[1] === 'a') {
-        // Is CallExpression
-        return true;
-      } else if (type[0] === 'M' && type[1] === 'e' && type[2] === 'm') {
-        // Is MemberExpression
-        currentNode = currentNode.object;
-      } else {
-        return false;
-      }
-    }
-  }
-
-  function formatVariableDeclaration(state, node) {
-    var generator = state.generator;
-    var declarations = node.declarations;
-
-    state.write(node.kind + ' ');
-    var length = declarations.length;
-
-    if (length > 0) {
-      generator.VariableDeclarator(declarations[0], state);
-      for (var i = 1; i < length; i++) {
-        state.write(', ');
-        generator.VariableDeclarator(declarations[i], state);
-      }
-    }
-  }
-
-  var ForInStatement = void 0,
-      FunctionDeclaration = void 0,
-      RestElement = void 0,
-      BinaryExpression = void 0,
-      ArrayExpression = void 0,
-      BlockStatement = void 0;
-
-  var baseGenerator = exports.baseGenerator = {
-    Program: function Program(node, state) {
-      var indent = state.indent.repeat(state.indentLevel);
-      var lineEnd = state.lineEnd,
-          writeComments = state.writeComments;
-
-      if (writeComments && node.comments != null) {
-        formatComments(state, node.comments, indent, lineEnd);
-      }
-      var statements = node.body;
-      var length = statements.length;
-
-      for (var i = 0; i < length; i++) {
-        var statement = statements[i];
-        if (writeComments && statement.comments != null) {
-          formatComments(state, statement.comments, indent, lineEnd);
-        }
-        state.write(indent);
-        this[statement.type](statement, state);
-        state.write(lineEnd);
-      }
-      if (writeComments && node.trailingComments != null) {
-        formatComments(state, node.trailingComments, indent, lineEnd);
-      }
-    },
-
-    BlockStatement: BlockStatement = function BlockStatement(node, state) {
-      var indent = state.indent.repeat(state.indentLevel++);
-      var lineEnd = state.lineEnd,
-          writeComments = state.writeComments;
-
-      var statementIndent = indent + state.indent;
-      state.write('{');
-      var statements = node.body;
-      if (statements != null && statements.length > 0) {
-        state.write(lineEnd);
-        if (writeComments && node.comments != null) {
-          formatComments(state, node.comments, statementIndent, lineEnd);
-        }
-        var length = statements.length;
-
-        for (var i = 0; i < length; i++) {
-          var statement = statements[i];
-          if (writeComments && statement.comments != null) {
-            formatComments(state, statement.comments, statementIndent, lineEnd);
-          }
-          state.write(statementIndent);
-          this[statement.type](statement, state);
-          state.write(lineEnd);
-        }
-        state.write(indent);
-      } else {
-        if (writeComments && node.comments != null) {
-          state.write(lineEnd);
-          formatComments(state, node.comments, statementIndent, lineEnd);
-          state.write(indent);
-        }
-      }
-      if (writeComments && node.trailingComments != null) {
-        formatComments(state, node.trailingComments, statementIndent, lineEnd);
-      }
-      state.write('}');
-      state.indentLevel--;
-    },
-    ClassBody: BlockStatement,
-    EmptyStatement: function EmptyStatement(node, state) {
-      state.write(';');
-    },
-    ExpressionStatement: function ExpressionStatement(node, state) {
-      var precedence = EXPRESSIONS_PRECEDENCE[node.expression.type];
-      if (precedence === NEEDS_PARENTHESES || precedence === 3 && node.expression.left.type[0] === 'O') {
-        // Should always have parentheses or is an AssignmentExpression to an ObjectPattern
-        state.write('(');
-        this[node.expression.type](node.expression, state);
-        state.write(')');
-      } else {
-        this[node.expression.type](node.expression, state);
-      }
-      state.write(';');
-    },
-    IfStatement: function IfStatement(node, state) {
-      state.write('if (');
-      this[node.test.type](node.test, state);
-      state.write(') ');
-      this[node.consequent.type](node.consequent, state);
-      if (node.alternate != null) {
-        state.write(' else ');
-        this[node.alternate.type](node.alternate, state);
-      }
-    },
-    LabeledStatement: function LabeledStatement(node, state) {
-      this[node.label.type](node.label, state);
-      state.write(': ');
-      this[node.body.type](node.body, state);
-    },
-    BreakStatement: function BreakStatement(node, state) {
-      state.write('break');
-      if (node.label != null) {
-        state.write(' ');
-        this[node.label.type](node.label, state);
-      }
-      state.write(';');
-    },
-    ContinueStatement: function ContinueStatement(node, state) {
-      state.write('continue');
-      if (node.label != null) {
-        state.write(' ');
-        this[node.label.type](node.label, state);
-      }
-      state.write(';');
-    },
-    WithStatement: function WithStatement(node, state) {
-      state.write('with (');
-      this[node.object.type](node.object, state);
-      state.write(') ');
-      this[node.body.type](node.body, state);
-    },
-    SwitchStatement: function SwitchStatement(node, state) {
-      var indent = state.indent.repeat(state.indentLevel++);
-      var lineEnd = state.lineEnd,
-          writeComments = state.writeComments;
-
-      state.indentLevel++;
-      var caseIndent = indent + state.indent;
-      var statementIndent = caseIndent + state.indent;
-      state.write('switch (');
-      this[node.discriminant.type](node.discriminant, state);
-      state.write(') {' + lineEnd);
-      var occurences = node.cases;
-      var occurencesCount = occurences.length;
-
-      for (var i = 0; i < occurencesCount; i++) {
-        var occurence = occurences[i];
-        if (writeComments && occurence.comments != null) {
-          formatComments(state, occurence.comments, caseIndent, lineEnd);
-        }
-        if (occurence.test) {
-          state.write(caseIndent + 'case ');
-          this[occurence.test.type](occurence.test, state);
-          state.write(':' + lineEnd);
-        } else {
-          state.write(caseIndent + 'default:' + lineEnd);
-        }
-        var consequent = occurence.consequent;
-        var consequentCount = consequent.length;
-
-        for (var _i = 0; _i < consequentCount; _i++) {
-          var statement = consequent[_i];
-          if (writeComments && statement.comments != null) {
-            formatComments(state, statement.comments, statementIndent, lineEnd);
-          }
-          state.write(statementIndent);
-          this[statement.type](statement, state);
-          state.write(lineEnd);
-        }
-      }
-      state.indentLevel -= 2;
-      state.write(indent + '}');
-    },
-    ReturnStatement: function ReturnStatement(node, state) {
-      state.write('return');
-      if (node.argument) {
-        state.write(' ');
-        this[node.argument.type](node.argument, state);
-      }
-      state.write(';');
-    },
-    ThrowStatement: function ThrowStatement(node, state) {
-      state.write('throw ');
-      this[node.argument.type](node.argument, state);
-      state.write(';');
-    },
-    TryStatement: function TryStatement(node, state) {
-      state.write('try ');
-      this[node.block.type](node.block, state);
-      if (node.handler) {
-        var handler = node.handler;
-
-        state.write(' catch (');
-        this[handler.param.type](handler.param, state);
-        state.write(') ');
-        this[handler.body.type](handler.body, state);
-      }
-      if (node.finalizer) {
-        state.write(' finally ');
-        this[node.finalizer.type](node.finalizer, state);
-      }
-    },
-    WhileStatement: function WhileStatement(node, state) {
-      state.write('while (');
-      this[node.test.type](node.test, state);
-      state.write(') ');
-      this[node.body.type](node.body, state);
-    },
-    DoWhileStatement: function DoWhileStatement(node, state) {
-      state.write('do ');
-      this[node.body.type](node.body, state);
-      state.write(' while (');
-      this[node.test.type](node.test, state);
-      state.write(');');
-    },
-    ForStatement: function ForStatement(node, state) {
-      state.write('for (');
-      if (node.init != null) {
-        var init = node.init;
-
-        if (init.type[0] === 'V') {
-          formatVariableDeclaration(state, init);
-        } else {
-          this[init.type](init, state);
-        }
-      }
-      state.write('; ');
-      if (node.test) {
-        this[node.test.type](node.test, state);
-      }
-      state.write('; ');
-      if (node.update) {
-        this[node.update.type](node.update, state);
-      }
-      state.write(') ');
-      this[node.body.type](node.body, state);
-    },
-
-    ForInStatement: ForInStatement = function ForInStatement(node, state) {
-      state.write('for (');
-      var left = node.left;
-
-      if (left.type[0] === 'V') {
-        formatVariableDeclaration(state, left);
-      } else {
-        this[left.type](left, state);
-      }
-      // Identifying whether node.type is `ForInStatement` or `ForOfStatement`
-      state.write(node.type[3] === 'I' ? ' in ' : ' of ');
-      this[node.right.type](node.right, state);
-      state.write(') ');
-      this[node.body.type](node.body, state);
-    },
-    ForOfStatement: ForInStatement,
-    DebuggerStatement: function DebuggerStatement(node, state) {
-      state.write('debugger;' + state.lineEnd);
-    },
-
-    FunctionDeclaration: FunctionDeclaration = function FunctionDeclaration(node, state) {
-      state.write((node.async ? 'async ' : '') + (node.generator ? 'function* ' : 'function ') + (node.id ? node.id.name : ''), node);
-      formatSequence(state, node.params);
-      state.write(' ');
-      this[node.body.type](node.body, state);
-    },
-    FunctionExpression: FunctionDeclaration,
-    VariableDeclaration: function VariableDeclaration(node, state) {
-      formatVariableDeclaration(state, node);
-      state.write(';');
-    },
-    VariableDeclarator: function VariableDeclarator(node, state) {
-      this[node.id.type](node.id, state);
-      if (node.init != null) {
-        state.write(' = ');
-        this[node.init.type](node.init, state);
-      }
-    },
-    ClassDeclaration: function ClassDeclaration(node, state) {
-      state.write('class ' + (node.id ? node.id.name + ' ' : ''), node);
-      if (node.superClass) {
-        state.write('extends ');
-        this[node.superClass.type](node.superClass, state);
-        state.write(' ');
-      }
-      this.ClassBody(node.body, state);
-    },
-    ImportDeclaration: function ImportDeclaration(node, state) {
-      state.write('import ');
-      var specifiers = node.specifiers;
-      var length = specifiers.length;
-      // NOTE: Once babili is fixed, put this after condition
-      // https://github.com/babel/babili/issues/430
-
-      var i = 0;
-      if (length > 0) {
-        for (; i < length;) {
-          if (i > 0) {
-            state.write(', ');
-          }
-          var specifier = specifiers[i];
-          var type = specifier.type[6];
-          if (type === 'D') {
-            // ImportDefaultSpecifier
-            state.write(specifier.local.name, specifier);
-            i++;
-          } else if (type === 'N') {
-            // ImportNamespaceSpecifier
-            state.write('* as ' + specifier.local.name, specifier);
-            i++;
-          } else {
-            // ImportSpecifier
-            break;
-          }
-        }
-        if (i < length) {
-          state.write('{');
-          for (;;) {
-            var _specifier = specifiers[i];
-            var name = _specifier.imported.name;
-
-            state.write(name, _specifier);
-            if (name !== _specifier.local.name) {
-              state.write(' as ' + _specifier.local.name);
-            }
-            if (++i < length) {
-              state.write(', ');
-            } else {
-              break;
-            }
-          }
-          state.write('}');
-        }
-        state.write(' from ');
-      }
-      this.Literal(node.source, state);
-      state.write(';');
-    },
-    ExportDefaultDeclaration: function ExportDefaultDeclaration(node, state) {
-      state.write('export default ');
-      this[node.declaration.type](node.declaration, state);
-      if (EXPRESSIONS_PRECEDENCE[node.declaration.type] && node.declaration.type[0] !== 'F') {
-        // All expression nodes except `FunctionExpression`
-        state.write(';');
-      }
-    },
-    ExportNamedDeclaration: function ExportNamedDeclaration(node, state) {
-      state.write('export ');
-      if (node.declaration) {
-        this[node.declaration.type](node.declaration, state);
-      } else {
-        state.write('{');
-        var specifiers = node.specifiers,
-            length = specifiers.length;
-
-        if (length > 0) {
-          for (var i = 0;;) {
-            var specifier = specifiers[i];
-            var name = specifier.local.name;
-
-            state.write(name, specifier);
-            if (name !== specifier.exported.name) {
-              state.write(' as ' + specifier.exported.name);
-            }
-            if (++i < length) {
-              state.write(', ');
-            } else {
-              break;
-            }
-          }
-        }
-        state.write('}');
-        if (node.source) {
-          state.write(' from ');
-          this.Literal(node.source, state);
-        }
-        state.write(';');
-      }
-    },
-    ExportAllDeclaration: function ExportAllDeclaration(node, state) {
-      state.write('export * from ');
-      this.Literal(node.source, state);
-      state.write(';');
-    },
-    MethodDefinition: function MethodDefinition(node, state) {
-      if (node.static) {
-        state.write('static ');
-      }
-      var kind = node.kind[0];
-      if (kind === 'g' || kind === 's') {
-        // Getter or setter
-        state.write(node.kind + ' ');
-      }
-      if (node.value.async) {
-        state.write('async ');
-      }
-      if (node.value.generator) {
-        state.write('*');
-      }
-      if (node.computed) {
-        state.write('[');
-        this[node.key.type](node.key, state);
-        state.write(']');
-      } else {
-        this[node.key.type](node.key, state);
-      }
-      formatSequence(state, node.value.params);
-      state.write(' ');
-      this[node.value.body.type](node.value.body, state);
-    },
-    ClassExpression: function ClassExpression(node, state) {
-      this.ClassDeclaration(node, state);
-    },
-    ArrowFunctionExpression: function ArrowFunctionExpression(node, state) {
-      state.write(node.async ? 'async ' : '', node);
-      var params = node.params;
-
-      if (params != null) {
-        // Omit parenthesis if only one named parameter
-        if (params.length === 1 && params[0].type[0] === 'I') {
-          // If params[0].type[0] starts with 'I', it can't be `ImportDeclaration` nor `IfStatement` and thus is `Identifier`
-          state.write(params[0].name, params[0]);
-        } else {
-          formatSequence(state, node.params);
-        }
-      }
-      state.write(' => ');
-      if (node.body.type[0] === 'O') {
-        // Body is an object expression
-        state.write('(');
-        this.ObjectExpression(node.body, state);
-        state.write(')');
-      } else {
-        this[node.body.type](node.body, state);
-      }
-    },
-    ThisExpression: function ThisExpression(node, state) {
-      state.write('this', node);
-    },
-    Super: function Super(node, state) {
-      state.write('super', node);
-    },
-
-    RestElement: RestElement = function RestElement(node, state) {
-      state.write('...');
-      this[node.argument.type](node.argument, state);
-    },
-    SpreadElement: RestElement,
-    YieldExpression: function YieldExpression(node, state) {
-      state.write(node.delegate ? 'yield*' : 'yield');
-      if (node.argument) {
-        state.write(' ');
-        this[node.argument.type](node.argument, state);
-      }
-    },
-    AwaitExpression: function AwaitExpression(node, state) {
-      state.write('await ');
-      if (node.argument) {
-        this[node.argument.type](node.argument, state);
-      }
-    },
-    TemplateLiteral: function TemplateLiteral(node, state) {
-      var quasis = node.quasis,
-          expressions = node.expressions;
-
-      state.write('`');
-      var length = expressions.length;
-
-      for (var i = 0; i < length; i++) {
-        var expression = expressions[i];
-        state.write(quasis[i].value.raw);
-        state.write('${');
-        this[expression.type](expression, state);
-        state.write('}');
-      }
-      state.write(quasis[quasis.length - 1].value.raw);
-      state.write('`');
-    },
-    TaggedTemplateExpression: function TaggedTemplateExpression(node, state) {
-      this[node.tag.type](node.tag, state);
-      this[node.quasi.type](node.quasi, state);
-    },
-
-    ArrayExpression: ArrayExpression = function ArrayExpression(node, state) {
-      state.write('[');
-      if (node.elements.length > 0) {
-        var elements = node.elements,
-            length = elements.length;
-
-        for (var i = 0;;) {
-          var element = elements[i];
-          if (element != null) {
-            this[element.type](element, state);
-          }
-          if (++i < length) {
-            state.write(', ');
-          } else {
-            if (element == null) {
-              state.write(', ');
-            }
-            break;
-          }
-        }
-      }
-      state.write(']');
-    },
-    ArrayPattern: ArrayExpression,
-    ObjectExpression: function ObjectExpression(node, state) {
-      var indent = state.indent.repeat(state.indentLevel++);
-      var lineEnd = state.lineEnd,
-          writeComments = state.writeComments;
-
-      var propertyIndent = indent + state.indent;
-      state.write('{');
-      if (node.properties.length > 0) {
-        state.write(lineEnd);
-        if (writeComments && node.comments != null) {
-          formatComments(state, node.comments, propertyIndent, lineEnd);
-        }
-        var comma = ',' + lineEnd;
-        var properties = node.properties,
-            length = properties.length;
-
-        for (var i = 0;;) {
-          var property = properties[i];
-          if (writeComments && property.comments != null) {
-            formatComments(state, property.comments, propertyIndent, lineEnd);
-          }
-          state.write(propertyIndent);
-          this.Property(property, state);
-          if (++i < length) {
-            state.write(comma);
-          } else {
-            break;
-          }
-        }
-        state.write(lineEnd);
-        if (writeComments && node.trailingComments != null) {
-          formatComments(state, node.trailingComments, propertyIndent, lineEnd);
-        }
-        state.write(indent + '}');
-      } else if (writeComments) {
-        if (node.comments != null) {
-          state.write(lineEnd);
-          formatComments(state, node.comments, propertyIndent, lineEnd);
-          if (node.trailingComments != null) {
-            formatComments(state, node.trailingComments, propertyIndent, lineEnd);
-          }
-          state.write(indent + '}');
-        } else if (node.trailingComments != null) {
-          state.write(lineEnd);
-          formatComments(state, node.trailingComments, propertyIndent, lineEnd);
-          state.write(indent + '}');
-        } else {
-          state.write('}');
-        }
-      } else {
-        state.write('}');
-      }
-      state.indentLevel--;
-    },
-    Property: function Property(node, state) {
-      if (node.method || node.kind[0] !== 'i') {
-        // Either a method or of kind `set` or `get` (not `init`)
-        this.MethodDefinition(node, state);
-      } else {
-        if (!node.shorthand) {
-          if (node.computed) {
-            state.write('[');
-            this[node.key.type](node.key, state);
-            state.write(']');
-          } else {
-            this[node.key.type](node.key, state);
-          }
-          state.write(': ');
-        }
-        this[node.value.type](node.value, state);
-      }
-    },
-    ObjectPattern: function ObjectPattern(node, state) {
-      state.write('{');
-      if (node.properties.length > 0) {
-        var properties = node.properties,
-            length = properties.length;
-
-        for (var i = 0;;) {
-          this[properties[i].type](properties[i], state);
-          if (++i < length) {
-            state.write(', ');
-          } else {
-            break;
-          }
-        }
-      }
-      state.write('}');
-    },
-    SequenceExpression: function SequenceExpression(node, state) {
-      formatSequence(state, node.expressions);
-    },
-    UnaryExpression: function UnaryExpression(node, state) {
-      if (node.prefix) {
-        state.write(node.operator);
-        if (node.operator.length > 1) {
-          state.write(' ');
-        }
-        if (EXPRESSIONS_PRECEDENCE[node.argument.type] < EXPRESSIONS_PRECEDENCE.UnaryExpression) {
-          state.write('(');
-          this[node.argument.type](node.argument, state);
-          state.write(')');
-        } else {
-          this[node.argument.type](node.argument, state);
-        }
-      } else {
-        // FIXME: This case never occurs
-        this[node.argument.type](node.argument, state);
-        state.write(node.operator);
-      }
-    },
-    UpdateExpression: function UpdateExpression(node, state) {
-      // Always applied to identifiers or members, no parenthesis check needed
-      if (node.prefix) {
-        state.write(node.operator);
-        this[node.argument.type](node.argument, state);
-      } else {
-        this[node.argument.type](node.argument, state);
-        state.write(node.operator);
-      }
-    },
-    AssignmentExpression: function AssignmentExpression(node, state) {
-      this[node.left.type](node.left, state);
-      state.write(' ' + node.operator + ' ');
-      this[node.right.type](node.right, state);
-    },
-    AssignmentPattern: function AssignmentPattern(node, state) {
-      this[node.left.type](node.left, state);
-      state.write(' = ');
-      this[node.right.type](node.right, state);
-    },
-
-    BinaryExpression: BinaryExpression = function BinaryExpression(node, state) {
-      if (node.operator === 'in') {
-        // Avoids confusion in `for` loops initializers
-        state.write('(');
-        formatBinaryExpressionPart(state, node.left, node, false);
-        state.write(' ' + node.operator + ' ');
-        formatBinaryExpressionPart(state, node.right, node, true);
-        state.write(')');
-      } else {
-        formatBinaryExpressionPart(state, node.left, node, false);
-        state.write(' ' + node.operator + ' ');
-        formatBinaryExpressionPart(state, node.right, node, true);
-      }
-    },
-    LogicalExpression: BinaryExpression,
-    ConditionalExpression: function ConditionalExpression(node, state) {
-      if (EXPRESSIONS_PRECEDENCE[node.test.type] > EXPRESSIONS_PRECEDENCE.ConditionalExpression) {
-        this[node.test.type](node.test, state);
-      } else {
-        state.write('(');
-        this[node.test.type](node.test, state);
-        state.write(')');
-      }
-      state.write(' ? ');
-      this[node.consequent.type](node.consequent, state);
-      state.write(' : ');
-      this[node.alternate.type](node.alternate, state);
-    },
-    NewExpression: function NewExpression(node, state) {
-      state.write('new ');
-      if (EXPRESSIONS_PRECEDENCE[node.callee.type] < EXPRESSIONS_PRECEDENCE.CallExpression || hasCallExpression(node.callee)) {
-        state.write('(');
-        this[node.callee.type](node.callee, state);
-        state.write(')');
-      } else {
-        this[node.callee.type](node.callee, state);
-      }
-      formatSequence(state, node['arguments']);
-    },
-    CallExpression: function CallExpression(node, state) {
-      if (EXPRESSIONS_PRECEDENCE[node.callee.type] < EXPRESSIONS_PRECEDENCE.CallExpression) {
-        state.write('(');
-        this[node.callee.type](node.callee, state);
-        state.write(')');
-      } else {
-        this[node.callee.type](node.callee, state);
-      }
-      formatSequence(state, node['arguments']);
-    },
-    MemberExpression: function MemberExpression(node, state) {
-      if (EXPRESSIONS_PRECEDENCE[node.object.type] < EXPRESSIONS_PRECEDENCE.MemberExpression) {
-        state.write('(');
-        this[node.object.type](node.object, state);
-        state.write(')');
-      } else {
-        this[node.object.type](node.object, state);
-      }
-      if (node.computed) {
-        state.write('[');
-        this[node.property.type](node.property, state);
-        state.write(']');
-      } else {
-        state.write('.');
-        this[node.property.type](node.property, state);
-      }
-    },
-    MetaProperty: function MetaProperty(node, state) {
-      state.write(node.meta.name + '.' + node.property.name, node);
-    },
-    Identifier: function Identifier(node, state) {
-      state.write(node.name, node);
-    },
-    Literal: function Literal(node, state) {
-      if (node.raw != null) {
-        state.write(node.raw, node);
-      } else if (node.regex != null) {
-        this.RegExpLiteral(node, state);
-      } else {
-        state.write(stringify(node.value), node);
-      }
-    },
-    RegExpLiteral: function RegExpLiteral(node, state) {
-      var regex = node.regex;
-
-      state.write('/' + regex.pattern + '/' + regex.flags, node);
-    }
-  };
-
-  var EMPTY_OBJECT = {};
-
-  var State = function () {
-    function State(options) {
-      _classCallCheck(this, State);
-
-      var setup = options == null ? EMPTY_OBJECT : options;
-      this.output = '';
-      // Functional options
-      if (setup.output != null) {
-        this.output = setup.output;
-        this.write = this.writeToStream;
-      } else {
-        this.output = '';
-      }
-      this.generator = setup.generator != null ? setup.generator : baseGenerator;
-      // Formating setup
-      this.indent = setup.indent != null ? setup.indent : '  ';
-      this.lineEnd = setup.lineEnd != null ? setup.lineEnd : '\n';
-      this.indentLevel = setup.startingIndentLevel != null ? setup.startingIndentLevel : 0;
-      this.writeComments = setup.comments ? setup.comments : false;
-      // Source map
-      if (setup.sourceMap != null) {
-        this.write = setup.output == null ? this.writeAndMap : this.writeToStreamAndMap;
-        this.sourceMap = setup.sourceMap;
-        this.line = 1;
-        this.column = 0;
-        this.lineEndSize = this.lineEnd.split('\n').length - 1;
-        this.mapping = {
-          original: null,
-          generated: this,
-          name: undefined,
-          source: setup.sourceMap.file || setup.sourceMap._file
-        };
-      }
-    }
-
-    State.prototype.write = function write(code) {
-      this.output += code;
-    };
-
-    State.prototype.writeToStream = function writeToStream(code) {
-      this.output.write(code);
-    };
-
-    State.prototype.writeAndMap = function writeAndMap(code, node) {
-      this.output += code;
-      this.map(code, node);
-    };
-
-    State.prototype.writeToStreamAndMap = function writeToStreamAndMap(code, node) {
-      this.output.write(code);
-      this.map(code, node);
-    };
-
-    State.prototype.map = function map(code, node) {
-      if (node != null && node.loc != null) {
-        var mapping = this.mapping;
-
-        mapping.original = node.loc.start;
-        mapping.name = node.name;
-        this.sourceMap.addMapping(mapping);
-      }
-      if (code.length > 0) {
-        if (this.lineEndSize > 0) {
-          if (code.endsWith(this.lineEnd)) {
-            this.line += this.lineEndSize;
-            this.column = 0;
-          } else if (code[code.length - 1] === '\n') {
-            // Case of inline comment
-            this.line++;
-            this.column = 0;
-          } else {
-            this.column += code.length;
-          }
-        } else {
-          if (code[code.length - 1] === '\n') {
-            // Case of inline comment
-            this.line++;
-            this.column = 0;
-          } else {
-            this.column += code.length;
-          }
-        }
-      }
-    };
-
-    State.prototype.toString = function toString() {
-      return this.output;
-    };
-
-    return State;
-  }();
-
-  function generate(node, options) {
-    /*
-    Returns a string representing the rendered code of the provided AST `node`.
-    The `options` are:
-     - `indent`: string to use for indentation (defaults to `␣␣`)
-    - `lineEnd`: string to use for line endings (defaults to `\n`)
-    - `startingIndentLevel`: indent level to start from (defaults to `0`)
-    - `comments`: generate comments if `true` (defaults to `false`)
-    - `output`: output stream to write the rendered code to (defaults to `null`)
-    - `generator`: custom code generator (defaults to `baseGenerator`)
-    */
-    var state = new State(options);
-    // Travel through the AST node and generate the code
-    state.generator[node.type](node, state);
-    return state.output;
-  }
-});
-
 
 },{}],45:[function(require,module,exports){
 (function (global){
@@ -10962,7 +10972,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":52,"_process":50,"inherits":51}]},{},[1]);
+},{"./support/isBuffer":52,"_process":50,"inherits":51}]},{},[2]);
 
   </script>
   </body>
