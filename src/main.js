@@ -156,7 +156,6 @@ module.exports = (membrane) => {
     return membrane.enter(narray($value));
   };
   advice.object = (keys, $value, serial) => {
-    debugger;
     Reflect_setPrototypeOf($value, capture(Reflect_getPrototypeOf($value)));
     return membrane.enter($value);
   };
