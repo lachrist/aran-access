@@ -21,7 +21,10 @@ const print = (value) => {
   return String(value);
 };
 
-const instrument = (script, serial) => Astring.generate(aran.weave(Acorn.parse(script, {locations:true}), pointcut, serial));
+const instrument = (script, scope) => Astring.generate(aran.weave(
+  Acorn.parse(script, {locations:true}),
+  pointcut,
+  {scope:scope, sandbox:true}));
 
 const access = AranAccess({
   enter: (value) => ({base:value, meta:"#"+(++counter2)}),

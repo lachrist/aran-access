@@ -3,9 +3,11 @@ const Aran = require("aran");
 const Astring = require("astring");
 const AranAccess = require("aran-access");
 
-const aran = Aran({namespace:"ADVICE", sandbox:true});
-const instrument = (script, scope) =>
-    Astring.generate(aran.weave(Acorn.parse(script, {locations:true}), pointcut, scope));
+const aran = Aran({namespace:"ADVICE"});
+const instrument = (script, scope) => Astring.generate(aran.weave(
+  Acorn.parse(script, {locations:true}),
+  pointcut,
+  {scope:scope, sandbox:true}));
 const location = (serial) => "@"+aran.node(serial).loc.start.line;
 const access = AranAccess({
   instrument: instrument,

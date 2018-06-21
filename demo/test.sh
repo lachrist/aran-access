@@ -1,0 +1,1 @@
+testrumenter instrument :atom > /dev/null

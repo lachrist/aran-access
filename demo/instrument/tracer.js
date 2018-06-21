@@ -15,9 +15,11 @@ const print = (value) => {
     return JSON.stringify(value);
   return String(value);
 };
-const aran = Aran({namespace:"ADVICE", sandbox:true});
-const instrument = (script, scope) =>
-    Astring.generate(aran.weave(Acorn.parse(script), pointcut, scope));
+const aran = Aran({namespace:"ADVICE"});
+const instrument = (script, scope) => Astring.generate(aran.weave(
+  Acorn.parse(script, {locations:true}),
+  pointcut,
+  {scope:scope, sandbox:true}));
 const access = AranAccess({
   instrument: instrument,
   enter: (value) => {
