@@ -10,6 +10,9 @@
   "repository": "lachrist/aran-access",
   "homepage": "http://github.com/lachrist/aran-access",
   "license": "MIT",
+  "dependencies": {
+    "severed-proxy": "0.0.1"
+  },
   "devDependencies": {
     "aran": "2.3.0",
     "sandbox-scenario": "0.0.12"
