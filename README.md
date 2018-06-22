@@ -125,7 +125,7 @@ if (isNaN(division.result))
   User-defined function to convert a tame value to an inner value.
 * `tame = leave(inner)`
   User-defined function to convert an inner value to a tame value.
-* `script2 = membrane.instrument(script1, serial)`:
+* `instrumented = instrument(original, serial)`:
   This function will be called to transforms code before passing it to the infamous `eval` function.
   If `membrane.instrument` is not defined, `advice.eval` will throw.
 * `advice :: object`
