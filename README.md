@@ -110,32 +110,32 @@ if (isNaN(division.result))
   * a primitive
   * a reference which satisfies the below constraints:
     * its prototype is a tame value.
-    * the values of its data properties are inner values
+    * the values of its data properties are inner values *expect* if the reference is an array; in that case, it's `length` property remains a wild value.
     * the getters and setters of its accessor properties are tame values
     * applying it with a tame value this-argument and inner value arguments will return an inner value
     * constructing it with inner value arguments will return an inner value
 
 ### `access = require("aran-access")(membrane)`
 
-* `membrane :: object`
-  * `inner = membrane.enter(tame)`:
+```js
+{advice, membrane, capture, release} = require("aran-access")({enter, leave, instrument});
+```
+
+* `inner = enter(tame)`
   User-defined function to convert a tame value to an inner value.
-  * `tame = membrane.leave(inner)`:
+* `tame = leave(inner)`
   User-defined function to convert an inner value to a tame value.
-  * `instrumented = membrane.instrument(code, serial)`:
+* `script2 = membrane.instrument(script1, serial)`:
   This function will be called to transforms code before passing it to the infamous `eval` function.
-    * `code :: string`
-    * `serial :: number`
-    * `instrumented :: string`
-* `access :: object`
-  * `access.advice :: object`
-  An aran advice, contains Aran traps and a `SANDBOX` field which is set to `access.capture(global)`.
-  The user can modify the advice before leting aran using it.
-  * `access.membrane :: object`:
+  If `membrane.instrument` is not defined, `advice.eval` will throw.
+* `advice :: object`
+  An Aran advice, contains Aran traps and a `SANDBOX` field which contains `access.capture(global)`.
+  The user can modify the advice before letting Aran using it.
+* `access.membrane :: object`:
   The same object as the membrane arguments.
-  * `tame = access.capture(wild)`
+* `tame = access.capture(wild)`
   Convert a wild value into a tame value.
-  * `wild = access.release(tame)`:
+* `wild = access.release(tame)`:
   Convert a tame value into a wild value.
 
 ## Discussion
@@ -203,7 +203,7 @@ We now discuss several strategies to provide an identity to primitive values:
 ## Acknowledgments
 
 I'm [Laurent Christophe](http://soft.vub.ac.be/soft/members/lachrist) a phd student at the Vrij Universiteit of Brussel (VUB).
-I'm working at the SOFT language lab in close relation with my promoters [Coen De Roover](http://soft.vub.ac.be/soft/members/cderoove) and [Wolfgang De Meuter](http://soft.vub.ac.be/soft/members/wdmeuter).
+I'm working at the SOFT language lab, my promoters are [Coen De Roover](http://soft.vub.ac.be/soft/members/cderoove) and [Wolfgang De Meuter](http://soft.vub.ac.be/soft/members/wdmeuter).
 I'm currently being employed on the [Tearless](http://soft.vub.ac.be/tearless/pages/index.html) project.
 
 <!-- Improvements ideas:
