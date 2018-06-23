@@ -121,19 +121,19 @@ if (isNaN(division.result))
 {advice, membrane, capture, release} = require("aran-access")({enter, leave, transform});
 ```
 
-* `inner = enter(tame)`
+* `inner = enter(tame)`:
   User-defined function to convert a tame value to an inner value.
-* `tame = leave(inner)`
+* `tame = leave(inner)`:
   User-defined function to convert an inner value to a tame value.
 * `transformed = transform(original, serial)`:
-  This function will be called to transforms code before passing it to the infamous `eval` function.
-  If `membrane.transform` is not defined, `advice.eval` will throw.
-* `advice :: object`
-  An Aran advice, contains Aran traps and a `SANDBOX` field which contains `access.capture(global)`.
+  This function will be called to transform code before passing it to the infamous `eval` function.
+  If `membrane.transform` is not defined, `access.advice.eval` will throw.
+* `advice :: object`:
+  An Aran advice, contains Aran traps and a `SANDBOX` property whose value is set to `access.capture(global)`.
   The user can modify the advice before letting Aran using it.
 * `access.membrane :: object`:
   The same object as the membrane arguments.
-* `tame = access.capture(wild)`
+* `tame = access.capture(wild)`:
   Convert a wild value into a tame value.
 * `wild = access.release(tame)`:
   Convert a tame value into a wild value.
