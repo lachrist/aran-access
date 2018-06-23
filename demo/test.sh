@@ -1,1 +1,1 @@
-testrumenter instrument :atom > /dev/null
+testrumenter transform :atom > /dev/null

@@ -1,6 +1,6 @@
 # AranAccess
 
-AranAccess is [npm module](https://www.npmjs.com/aran-access) that implements an access control system around JavaScript code instrumented by [Aran](https://github.com/lachrist/aran).
+AranAccess is [npm module](https://www.npmjs.com/aran-access) that implements an access control system around JavaScript code transformed by [Aran](https://github.com/lachrist/aran).
 This module's motivation is to build dynamic analyses capable of tracking primitive values across the object graph.
 
 ## Getting Started
@@ -16,11 +16,11 @@ const Astring = require("astring");
 const AranAccess = require("aran-access");
 
 const aran = Aran({namespace:"TRAPS", sandbox:true});
-const instrument = (script, parent) =>
+const transform = (script, parent) =>
   Astring.generate(aran.weave(Acorn.parse(script), pointcut, parent));
 let counter = 0;
 const access = AranAccess({
-  instrument: instrument,
+  transform: transform,
   enter: (value) => ({concrete:value, shadow:"#"+(counter++)}),
   leave: (value) => value.concrete
 });
@@ -39,7 +39,7 @@ global.TRAPS.binary = (operator, left, right, serial) => {
 };
 
 global.eval(Astring.generate(aran.setup()));
-global.eval(instrument(`
+global.eval(transform(`
 let division = {};
 division.dividend = 1 - 1;
 division.divisor = 20 - 2 * 10;
@@ -85,8 +85,8 @@ if (isNaN(division.result))
 * [demo/analysis/tracer.js](https://cdn.rawgit.com/lachrist/aran-access/c4c99e88/demo/output/tracer-delta.html)
   Use an identity membranes and log every operations.
 * [demo/analysis/wrapper](https://cdn.rawgit.com/lachrist/aran-access/c4c99e88/demo/output/wrapper-delta.html):
-  Every values entering instrumented areas are wrapped to provide a well-defined identity.
-  Every wrapper leaving instrumented areas are unwrapped so the behavior of the base program is not altered.
+  Every values entering transformed code areas are wrapped to provide a well-defined identity.
+  Every wrapper leaving transformed code areas are unwrapped so the behavior of the base program is not altered.
   Wrapping and unwrapping operations are logged.
 * [demo/analysis/concolic](https://cdn.rawgit.com/lachrist/aran-access/c4c99e88/demo/output/concolic-delta.html):
   In this very simple concolic executer, primitive values from literal, binary and unary operations are all considered symbolic.
@@ -118,16 +118,16 @@ if (isNaN(division.result))
 ### `access = require("aran-access")(membrane)`
 
 ```js
-{advice, membrane, capture, release} = require("aran-access")({enter, leave, instrument});
+{advice, membrane, capture, release} = require("aran-access")({enter, leave, transform});
 ```
 
 * `inner = enter(tame)`
   User-defined function to convert a tame value to an inner value.
 * `tame = leave(inner)`
   User-defined function to convert an inner value to a tame value.
-* `instrumented = instrument(original, serial)`:
+* `transformed = transform(original, serial)`:
   This function will be called to transforms code before passing it to the infamous `eval` function.
-  If `membrane.instrument` is not defined, `advice.eval` will throw.
+  If `membrane.transform` is not defined, `advice.eval` will throw.
 * `advice :: object`
   An Aran advice, contains Aran traps and a `SANDBOX` field which contains `access.capture(global)`.
   The user can modify the advice before letting Aran using it.
@@ -140,7 +140,7 @@ if (isNaN(division.result))
 
 ## Discussion
 
-[Aran](https://github.com/lachrist/aran) and program instrumentation in general is good for introspecting the control flow and pointers data flow.
+[Aran](https://github.com/lachrist/aran) and program transformation in general is good for introspecting the control flow and pointers data flow.
 Things become more difficult when reasoning about primitive value data flow is involved.
 For instance, there is no way at the JavaScript language level to differentiate two `null` values even though they have different origins.
 This restriction strikes every JavaScript primitive values because they are inlined into different parts of the program's state -- e.g the environment and the value stack.
@@ -165,7 +165,7 @@ We now discuss several strategies to provide an identity to primitive values:
 * *Wrappers*:
   Instead of providing an entire separated shadow state, wrappers constitute a finer grained solution.
   By wrapping primitive values inside objects we can simply let them propagate through the data flow of the base program.
-  The challenge introduced by wrappers is to make them behave like their wrapped primitive value to non-instrumented code.
+  The challenge introduced by wrappers is to make them behave like their wrapped primitive value to non-transformed code.
   We explore three solutions to this challenge:
   * *Boxed Values*:
     JavaScript enables to box booleans, numbers and strings.

@@ -21,7 +21,7 @@ const print = (value) => {
   return String(value);
 };
 
-const instrument = (script, scope) => Astring.generate(aran.weave(
+const transform = (script, scope) => Astring.generate(aran.weave(
   Acorn.parse(script, {locations:true}),
   pointcut,
   {scope:scope, sandbox:true}));
@@ -29,7 +29,7 @@ const instrument = (script, scope) => Astring.generate(aran.weave(
 const access = AranAccess({
   enter: (value) => ({base:value, meta:"#"+(++counter2)}),
   leave: (wrapper) => wrapper.base,
-  instrument: instrument
+  transform: transform
 });
 
 const pointcut = Object.keys(access.advice);
@@ -118,4 +118,4 @@ ADVICE.binary = (operator, value1, value2, serial) => combine(
 
 const aran = Aran({namespace:"ADVICE", sandbox:true});
 global.eval(Astring.generate(aran.setup()));
-module.exports = (script, source) => instrument(script);
+module.exports = (script) => transform(script, ["this"]);

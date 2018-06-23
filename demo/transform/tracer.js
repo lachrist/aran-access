@@ -16,12 +16,12 @@ const print = (value) => {
   return String(value);
 };
 const aran = Aran({namespace:"ADVICE"});
-const instrument = (script, scope) => Astring.generate(aran.weave(
+const transform = (script, scope) => Astring.generate(aran.weave(
   Acorn.parse(script, {locations:true}),
   pointcut,
   {scope:scope, sandbox:true}));
 const access = AranAccess({
-  instrument: instrument,
+  transform: transform,
   enter: (value) => {
     console.log("ENTER", print(value));
     return value;
@@ -44,4 +44,4 @@ pointcut.filter((key) => key.toLowerCase() === key).forEach((key) => {
 });
 ADVICE.SANDBOX = access.advice.SANDBOX;
 global.eval(Astring.generate(aran.setup()));
-module.exports = (script, source) => instrument(script);
+module.exports = (script) => transform(script, ["this"]);

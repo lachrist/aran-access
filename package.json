@@ -1,7 +1,7 @@
 {
   "name": "aran-access",
   "description": "Access Control System for http://npmjs.com/aran",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "author": {
     "name": "Laurent Christophe",
     "email": "lachrist@vub.ac.be"

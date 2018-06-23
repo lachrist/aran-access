@@ -4,13 +4,13 @@ const Astring = require("astring");
 const AranAccess = require("aran-access");
 
 const aran = Aran({namespace:"ADVICE"});
-const instrument = (script, scope) => Astring.generate(aran.weave(
+const transform = (script, scope) => Astring.generate(aran.weave(
   Acorn.parse(script, {locations:true}),
   pointcut,
   {scope:scope, sandbox:true}));
 const location = (serial) => "@"+aran.node(serial).loc.start.line;
 const access = AranAccess({
-  instrument: instrument,
+  transform: transform,
   enter: (value) => value,
   leave: (value) => wrappers.has(value) ? value.base : value
 });
@@ -50,4 +50,4 @@ ADVICE.unary = (operator, value, serial) => {
 };
 const pointcut = Object.keys(ADVICE);
 global.eval(Astring.generate(aran.setup()));
-module.exports = (script, source) => instrument(script);
+module.exports = (script) => transform(script, ["this"]);

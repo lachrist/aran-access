@@ -4,13 +4,13 @@ const Astring = require("astring");
 const AranAccess = require("aran-access");
 
 const aran = Aran({namespace:"ADVICE"});
-const instrument = (script, scope) => Astring.generate(aran.weave(
+const transform = (script, scope) => Astring.generate(aran.weave(
   Acorn.parse(script, {locations:true}),
   pointcut,
   {scope:scope, sandbox:true}));
 let wrappers = new WeakSet();
 const access = AranAccess({
-  instrument: instrument,
+  transform: transform,
   enter: (value) => {
     const wrapper = {inner:value};
     wrappers.add(wrapper);
@@ -25,4 +25,4 @@ const access = AranAccess({
 global.ADVICE = access.advice;
 const pointcut = Object.keys(ADVICE);
 global.eval(Astring.generate(aran.setup()));
-module.exports = (script, source) => instrument(script);
+module.exports = (script) => transform(script, ["this"]);
