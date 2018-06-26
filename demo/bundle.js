@@ -20,13 +20,13 @@ const callback = (name) => (error, script) => {
   ].join("\n"), "utf8");
 }
 
-const bundle = (instrument, target) => SandboxScenario(
+const bundle = (transform, target) => SandboxScenario(
   {type:"raw", path:__dirname+"/spawn.js"},
   [
-    {type:"browserify", path:__dirname+"/instrument/"+instrument+".js"}],
+    {type:"browserify", path:__dirname+"/transform/"+transform+".js"}],
   [
     {type:"raw", path:__dirname+"/target/"+target+".js"}],
-  callback(instrument+"-"+target));
+  callback(transform+"-"+target));
 
 bundle("identity", "delta");
 bundle("tracer", "delta");
