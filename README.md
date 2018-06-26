@@ -78,20 +78,20 @@ if (isNaN(division.result))
 
 ## Demonstrators
 
-* [demo/analysis/identity.js](https://cdn.rawgit.com/lachrist/aran-access/c4c99e88/demo/output/identity-delta.html)
+* [demo/analysis/identity.js](https://cdn.rawgit.com/lachrist/aran-access/c79fbf4a/demo/output/identity-delta.html)
   Demonstrate the API of this module but don't produce any observable effect.
-* [demo/analysis/identity-wrapper.js](https://cdn.rawgit.com/lachrist/aran-access/c4c99e88/demo/output/identity-wrapper-delta.html)
+* [demo/analysis/identity-wrapper.js](https://cdn.rawgit.com/lachrist/aran-access/c79fbf4a/demo/output/identity-wrapper-delta.html)
   Still don't produce any observable effect but wrap every values entering the system and unwrap them as they leave the system.
-* [demo/analysis/tracer.js](https://cdn.rawgit.com/lachrist/aran-access/c4c99e88/demo/output/tracer-delta.html)
+* [demo/analysis/tracer.js](https://cdn.rawgit.com/lachrist/aran-access/c79fbf4a/demo/output/tracer-delta.html)
   Use an identity membranes and log every operations.
-* [demo/analysis/wrapper](https://cdn.rawgit.com/lachrist/aran-access/c4c99e88/demo/output/wrapper-delta.html):
+* [demo/analysis/wrapper](https://cdn.rawgit.com/lachrist/aran-access/c79fbf4a/demo/output/wrapper-delta.html):
   Every values entering transformed code areas are wrapped to provide a well-defined identity.
   Every wrapper leaving transformed code areas are unwrapped so the behavior of the base program is not altered.
   Wrapping and unwrapping operations are logged.
-* [demo/analysis/concolic](https://cdn.rawgit.com/lachrist/aran-access/c4c99e88/demo/output/concolic-delta.html):
+* [demo/analysis/concolic](https://cdn.rawgit.com/lachrist/aran-access/c79fbf4a/demo/output/concolic-delta.html):
   In this very simple concolic executer, primitive values from literal, binary and unary operations are all considered symbolic.
   Also use a wrapper membrane but overwrite a couple of traps to log data dependencies.
-* [demo/analysis/dependency](https://cdn.rawgit.com/lachrist/aran-access/c4c99e88/demo/output/dependency-delta.html):
+* [demo/analysis/dependency](https://cdn.rawgit.com/lachrist/aran-access/c79fbf4a/demo/output/dependency-delta.html):
   Same as above but every traps is login the data flow.
 
 ## API
