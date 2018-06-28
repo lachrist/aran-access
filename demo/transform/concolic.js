@@ -10,6 +10,7 @@ const transform = (script, scope) => Astring.generate(aran.weave(
   {scope:scope, sandbox:true}));
 const location = (serial) => "@"+aran.node(serial).loc.start.line;
 const access = AranAccess({
+  check: true,
   transform: transform,
   enter: (value) => value,
   leave: (value) => wrappers.has(value) ? value.base : value

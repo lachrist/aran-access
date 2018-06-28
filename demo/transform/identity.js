@@ -9,6 +9,7 @@ const transform = (script, scope) => Astring.generate(aran.weave(
   pointcut,
   {scope:scope, sandbox:true}));
 const access = AranAccess({
+  check: true,
   transform: transform,
   enter: (value) => value,
   leave: (value) => value

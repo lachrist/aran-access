@@ -27,9 +27,10 @@ const transform = (script, scope) => Astring.generate(aran.weave(
   {scope:scope, sandbox:true}));
 
 const access = AranAccess({
+  check: true,
+  transform: transform,
   enter: (value) => ({base:value, meta:"#"+(++counter2)}),
-  leave: (wrapper) => wrapper.base,
-  transform: transform
+  leave: (wrapper) => wrapper.base
 });
 
 const pointcut = Object.keys(access.advice);

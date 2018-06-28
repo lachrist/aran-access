@@ -118,13 +118,15 @@ if (isNaN(division.result))
 ### `access = require("aran-access")(membrane)`
 
 ```js
-{advice, membrane, capture, release} = require("aran-access")({enter, leave, transform});
+{advice, membrane, capture, release} = require("aran-access")({enter, leave, check, transform});
 ```
 
 * `inner = enter(tame)`:
   User-defined function to convert a tame value to an inner value.
 * `tame = leave(inner)`:
   User-defined function to convert an inner value to a tame value.
+* `check :: boolean`, default `false`:
+  Indicates whether runtime checks should be peformed inside `capture` and `release` to detect type errors between tame and wild values.
 * `transformed = transform(original, serial)`:
   This function will be called to transform code before passing it to the infamous `eval` function.
   If `membrane.transform` is not defined, `access.advice.eval` will throw.

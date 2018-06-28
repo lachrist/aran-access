@@ -10,6 +10,7 @@ const transform = (script, scope) => Astring.generate(aran.weave(
   {scope:scope, sandbox:true}));
 let wrappers = new WeakSet();
 const access = AranAccess({
+  check: true,
   transform: transform,
   enter: (value) => {
     const wrapper = {inner:value};

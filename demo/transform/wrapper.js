@@ -11,6 +11,7 @@ const transform = (script, scope) => Astring.generate(aran.weave(
 let counter = 0;
 const wrappers = new WeakMap();
 const access = AranAccess({
+  check: true,
   transform: transform,
   enter: (value) => {
     if (value && typeof value === "object" || typeof value === "function") {
