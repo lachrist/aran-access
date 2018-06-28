@@ -1,7 +1,7 @@
 {
   "name": "aran-access",
   "description": "Access Control System for http://npmjs.com/aran",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "author": {
     "name": "Laurent Christophe",
     "email": "lachrist@vub.ac.be"
@@ -11,7 +11,7 @@
   "homepage": "http://github.com/lachrist/aran-access",
   "license": "MIT",
   "dependencies": {
-    "severed-proxy": "0.0.1"
+    "virtual-proxy": "0.0.0"
   },
   "devDependencies": {
     "aran": "2.3.0",
