@@ -127,6 +127,20 @@ if (isNaN(division.result))
   User-defined function to convert an inner value to a tame value.
 * `check :: boolean`, default `false`:
   Indicates whether runtime checks should be peformed inside `capture` and `release` to detect type errors between tame and wild values.
+  Improve the chance of these checks to spot a type error at the right place the `membrane.enter` and `membrane.leave` can be rewritten as:
+  ```js
+  const enter = (value) => { ... };
+  const leave = (value) => { ... };
+  membrane.enter = (value) {
+    access.release(value);
+    return enter(value);
+  };
+  membrane.leave = (value) => {
+    const result = leave(value);
+    access.release(result);
+    return result;
+  };
+  ```
 * `transformed = transform(original, serial)`:
   This function will be called to transform code before passing it to the infamous `eval` function.
   If `membrane.transform` is not defined, `access.advice.eval` will throw.
