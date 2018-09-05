@@ -3,18 +3,19 @@ const Aran = require("aran");
 const Astring = require("astring");
 const AranAccess = require("aran-access");
 
-const aran = Aran({namespace:"ADVICE"});
-const transform = (script, scope) => Astring.generate(aran.weave(
-  Acorn.parse(script, {locations:true}),
-  pointcut,
-  {scope:scope, sandbox:true}));
 const access = AranAccess({
   check: true,
-  transform: transform,
   enter: (value) => value,
   leave: (value) => value
 });
-const pointcut = Object.keys(access.advice);
 global.ADVICE = access.advice;
+
+const aran = Aran({
+  namespace: "ADVICE",
+  sandbox: true,
+  pointcut: Object.keys(ADVICE)
+});
+access.membrane.transform = (script, scope) =>
+  Astring.generate(aran.weave(Acorn.parse(script, {locations:true}), scope));
 global.eval(Astring.generate(aran.setup()));
-module.exports = (script) => transform(script, ["this"]);
+module.exports = (script) => access.membrane.transform(script, ["this"]);

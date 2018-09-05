@@ -3,16 +3,10 @@ const Aran = require("aran");
 const Astring = require("astring");
 const AranAccess = require("aran-access");
 
-const aran = Aran({namespace:"ADVICE"});
-const transform = (script, scope) => Astring.generate(aran.weave(
-  Acorn.parse(script, {locations:true}),
-  pointcut,
-  {scope:scope, sandbox:true}));
 let counter = 0;
 const wrappers = new WeakMap();
 const access = AranAccess({
   check: true,
-  transform: transform,
   enter: (value) => {
     if (value && typeof value === "object" || typeof value === "function") {
       var wrapper = wrappers.get(value);
@@ -30,7 +24,14 @@ const access = AranAccess({
   },
   leave: (value) => (console.log(">> #"+value.meta), value.base)
 });
+
+const aran = Aran({
+  namespace: "ADVICE",
+  sandbox: true,
+  pointcut: Object.keys(access.advice)
+});
 global.ADVICE = access.advice;
-const pointcut = Object.keys(ADVICE);
+access.membrane.transform = (script, scope) =>
+  Astring.generate(aran.weave(Acorn.parse(script, {locations:true}), scope));
 global.eval(Astring.generate(aran.setup()));
-module.exports = (script) => transform(script, ["this"]);
+module.exports = (script) => access.membrane.transform(script, ["this"]);

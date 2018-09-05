@@ -15,7 +15,7 @@
   },
   "devDependencies": {
     "acorn": "5.4.1",
-    "aran": "2.3.0",
+    "aran": "2.5.1",
     "astring": "1.2.0",
     "sandbox-scenario": "0.0.12"
   },

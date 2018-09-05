@@ -15,16 +15,18 @@ const Aran = require("aran");
 const Astring = require("astring");
 const AranAccess = require("aran-access");
 
-const aran = Aran({namespace:"TRAPS", sandbox:true});
-const transform = (script, parent) =>
-  Astring.generate(aran.weave(Acorn.parse(script), pointcut, parent));
 let counter = 0;
 const access = AranAccess({
-  transform: transform,
   enter: (value) => ({concrete:value, shadow:"#"+(counter++)}),
   leave: (value) => value.concrete
 });
-const pointcut = Object.keys(access.advice);
+const aran = Aran({
+  namespace: "TRAPS",
+  sandbox: true,
+  pointcut: Object.keys(access.advice)
+});
+access.membrane.transform = (script, scope) =>
+  Astring.generate(aran.weave(Acorn.parse(script), pointcut, parent));
 
 global.TRAPS = Object.assign({}, access.advice);
 global.TRAPS.primitive = (primitive, serial) => {
@@ -39,14 +41,14 @@ global.TRAPS.binary = (operator, left, right, serial) => {
 };
 
 global.eval(Astring.generate(aran.setup()));
-global.eval(transform(`
+global.eval(access.membrane.transform(`
 let division = {};
 division.dividend = 1 - 1;
 division.divisor = 20 - 2 * 10;
 division.result = division.dividend / division.divisor;
 if (isNaN(division.result))
   console.log("!!!NaN division result!!!");
-`));
+`, "global"));
 ```
 
 ```
@@ -141,14 +143,14 @@ if (isNaN(division.result))
     return result;
   };
   ```
-* `transformed = transform(original, serial)`:
+* `transformed = transform(original, scope)`:
   This function will be called to transform code before passing it to the infamous `eval` function.
-  If `membrane.transform` is not defined, `access.advice.eval` will throw.
+  If `membrane.transform` is not defined, `access.advice.eval` will throw an exception.
 * `advice :: object`:
   An Aran advice, contains Aran traps and a `SANDBOX` property whose value is set to `access.capture(global)`.
   The user can modify the advice before letting Aran using it.
 * `access.membrane :: object`:
-  The same object as the membrane arguments.
+  The same value as the given argument.
 * `tame = access.capture(wild)`:
   Convert a wild value into a tame value.
 * `wild = access.release(tame)`:

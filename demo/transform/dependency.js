@@ -21,21 +21,13 @@ const print = (value) => {
   return String(value);
 };
 
-const transform = (script, scope) => Astring.generate(aran.weave(
-  Acorn.parse(script, {locations:true}),
-  pointcut,
-  {scope:scope, sandbox:true}));
-
 const access = AranAccess({
   check: true,
-  transform: transform,
   enter: (value) => ({base:value, meta:"#"+(++counter2)}),
   leave: (wrapper) => wrapper.base
 });
 
-const pointcut = Object.keys(access.advice);
-
-const location = (serial) => aran.node(serial).loc.start.line;
+const location = (serial) => aran.nodes[serial].loc.start.line;
 
 global.ADVICE = {SANDBOX:access.advice.SANDBOX};
 
@@ -117,6 +109,12 @@ ADVICE.binary = (operator, value1, value2, serial) => combine(
   access.advice.binary(operator, value1, value2, serial),
   "binary", "\""+operator+"\", "+value1.meta+", "+value2.meta, serial);
 
-const aran = Aran({namespace:"ADVICE", sandbox:true});
+const aran = Aran({
+  namespace: "ADVICE",
+  sandbox: true,
+  pointcut: Object.keys(ADVICE)
+});
+access.membrane.transform = (script, scope) =>
+  Astring.generate(aran.weave(Acorn.parse(script, {locations:true}), scope));
 global.eval(Astring.generate(aran.setup()));
-module.exports = (script) => transform(script, ["this"]);
+module.exports = (script) => access.membrane.transform(script, ["this"]);

@@ -15,14 +15,8 @@ const print = (value) => {
     return JSON.stringify(value);
   return String(value);
 };
-const aran = Aran({namespace:"ADVICE"});
-const transform = (script, scope) => Astring.generate(aran.weave(
-  Acorn.parse(script, {locations:true}),
-  pointcut,
-  {scope:scope, sandbox:true}));
 const access = AranAccess({
   check: true,
-  transform: transform,
   enter: (value) => {
     console.log("ENTER", print(value));
     return value;
@@ -32,9 +26,8 @@ const access = AranAccess({
     return value;
   }
 });
-const pointcut = Object.keys(access.advice);
-global.ADVICE = {};
-pointcut.filter((key) => key.toLowerCase() === key).forEach((key) => {
+global.ADVICE = {SANDBOX:access.advice.SANDBOX};
+Object.keys(access.advice).filter((key) => key.toLowerCase() === key).forEach((key) => {
   ADVICE[key] = function () {
     const identity = counter++;
     console.log("BEGIN", "#"+identity, key, Array.from(arguments).map(print).join(" "));
@@ -43,6 +36,13 @@ pointcut.filter((key) => key.toLowerCase() === key).forEach((key) => {
     return result;
   };
 });
-ADVICE.SANDBOX = access.advice.SANDBOX;
+
+const aran = Aran({
+  namespace: "ADVICE",
+  sandbox: true,
+  pointcut: Object.keys(ADVICE)
+});
+access.membrane.transform = (script, scope) =>
+  Astring.generate(aran.weave(Acorn.parse(script, {locations:true}), scope));
 global.eval(Astring.generate(aran.setup()));
-module.exports = (script) => transform(script, ["this"]);
+module.exports = (script) => access.membrane.transform(script, ["this"]);
