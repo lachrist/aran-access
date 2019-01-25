@@ -1,8 +1,9 @@
 # AranAccess
 
 **Deprecated**
-This repository is no longer maintained instead, we encourage you to switch to [lachrist/linvail](https://github.com/lachrist/linvail).
-In particular this module is *not* compatible with `>= aran@3.0.0`.
+This repository is no longer maintained.
+Instead, we encourage you to switch to [lachrist/linvail](https://github.com/lachrist/linvail).
+In particular, this module is *not* compatible with `>= aran@3.0.0`.
 Originally this module was named `linvail`.
 But, because it was hard coupled to the JavaScript instrumenter [aran](https://github.com/lachrist/aran), we decided to rename it `aran-access`.
 However lately, we managed to remove all the dependencies between the two modules.
